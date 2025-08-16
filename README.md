@@ -114,7 +114,7 @@ The system includes comprehensive diagnostic code coverage:
 ## Installation
 
 1. Prerequisites:
-   - Go 1.22 or later
+   - Go 1.21 or later
    - For CAN bus support:
      - Windows: Compatible CAN adapter and drivers
      - Linux: CAN interface configured (`can0`)

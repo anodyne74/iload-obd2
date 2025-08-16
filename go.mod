@@ -1,6 +1,6 @@
 module iload-obd2
 
-go 1.22.0
+go 1.21
 
 require (
 	github.com/gorilla/mux v1.8.1
