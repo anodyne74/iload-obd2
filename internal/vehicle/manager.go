@@ -24,7 +24,7 @@ func NewManager() *Manager {
 }
 
 // RegisterVehicle adds a new vehicle to the manager
-func (m *Manager) RegisterVehicle(vin, make, model string, year int) (*Vehicle, error) {
+func (m *Manager) RegisterVehicle(vin, manufacturer, model string, year int) (*Vehicle, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -34,7 +34,7 @@ func (m *Manager) RegisterVehicle(vin, make, model string, year int) (*Vehicle, 
 
 	v := &Vehicle{
 		VIN:   vin,
-		Make:  make,
+		Make:  manufacturer,
 		Model: model,
 		Year:  year,
 		Capabilities: Capabilities{
