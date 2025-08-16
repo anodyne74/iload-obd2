@@ -20,3 +20,11 @@ require (
 	golang.org/x/net v0.7.0 // indirect
 	golang.org/x/sys v0.5.0 // indirect
 )
+// This module replaces the local packages with their respective directories
+// to facilitate local development and testing. 
+replace (
+	github.com/anodyne74/iload-obd2/capture => ./capture
+	github.com/anodyne74/iload-obd2/analyze => ./analyze
+	github.com/anodyne74/iload-obd2/query => ./query
+	github.com/anodyne74/iload-obd2/replay => ./replay
+)

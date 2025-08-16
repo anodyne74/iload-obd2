@@ -296,6 +296,7 @@ The application provides WebSocket endpoints for real-time data:
     }]
   }
 }
+```
 
 4. Access the dashboard:
 Open a web browser and navigate to `http://<raspberry-pi-ip>:8080`
@@ -660,6 +661,7 @@ go run cmd/query/main.go --query live --continuous
     }
   }
 }
+```
 
 ## Contributing
 Contributions are welcome! Please feel free to submit pull requests, particularly for:
