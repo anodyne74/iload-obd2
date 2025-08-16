@@ -3,7 +3,7 @@ package datastore
 import (
 	"time"
 
-	"iload-obd2/internal/vehicle"
+	"github.com/anodyne74/iload-obd2/internal/vehicle"
 )
 
 // Store defines the interface for vehicle data storage

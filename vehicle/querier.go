@@ -72,28 +72,28 @@ func (vq *VehicleQuerier) QueryAllData() (*VehicleData, error) {
 	}
 
 	// Query VIN
-	vin, err := vq.queryVIN()
+	vin, err := vq.QueryVIN()
 	if err != nil {
 		return nil, fmt.Errorf("failed to query VIN: %v", err)
 	}
 	data.VIN = vin
 
 	// Query ECU information
-	ecus, err := vq.queryECUs()
+	ecus, err := vq.QueryECUs()
 	if err != nil {
 		return nil, fmt.Errorf("failed to query ECUs: %v", err)
 	}
 	data.ECUs = ecus
 
 	// Query Engine Maps
-	engineMaps, err := vq.queryEngineMaps()
+	engineMaps, err := vq.QueryEngineMaps()
 	if err != nil {
 		return nil, fmt.Errorf("failed to query engine maps: %v", err)
 	}
 	data.EngineMaps = engineMaps
 
 	// Query supported PIDs
-	supportedPIDs, err := vq.querySupportedPIDs()
+	supportedPIDs, err := vq.QuerySupportedPIDs()
 	if err != nil {
 		return nil, fmt.Errorf("failed to query supported PIDs: %v", err)
 	}
@@ -102,12 +102,12 @@ func (vq *VehicleQuerier) QueryAllData() (*VehicleData, error) {
 	return data, nil
 }
 
-func (vq *VehicleQuerier) queryVIN() (string, error) {
+func (vq *VehicleQuerier) QueryVIN() (string, error) {
 	// Implementation for VIN query using Mode 09 PID 02
 	return "Sample VIN Query", nil
 }
 
-func (vq *VehicleQuerier) queryECUs() (map[string]ECUInfo, error) {
+func (vq *VehicleQuerier) QueryECUs() (map[string]ECUInfo, error) {
 	ecus := make(map[string]ECUInfo)
 
 	// Query each ECU (Engine, Transmission, ABS, etc.)
@@ -124,7 +124,7 @@ func (vq *VehicleQuerier) queryECUs() (map[string]ECUInfo, error) {
 	return ecus, nil
 }
 
-func (vq *VehicleQuerier) queryEngineMaps() (EngineMap, error) {
+func (vq *VehicleQuerier) QueryEngineMaps() (EngineMap, error) {
 	maps := EngineMap{
 		FuelMaps:    make(map[string][]float64),
 		IgnitionMap: make(map[string][]float64),
@@ -133,7 +133,7 @@ func (vq *VehicleQuerier) queryEngineMaps() (EngineMap, error) {
 	}
 
 	// Query fuel maps
-	fuelMap, err := vq.queryFuelMap()
+	fuelMap, err := vq.QueryFuelMap()
 	if err != nil {
 		return maps, fmt.Errorf("failed to query fuel map: %v", err)
 	}
@@ -142,7 +142,7 @@ func (vq *VehicleQuerier) queryEngineMaps() (EngineMap, error) {
 	return maps, nil
 }
 
-func (vq *VehicleQuerier) queryFuelMap() (map[string][]float64, error) {
+func (vq *VehicleQuerier) QueryFuelMap() (map[string][]float64, error) {
 	// Implementation for fuel map query
 	return map[string][]float64{
 		"idle": {1.0, 1.2, 1.3},
@@ -152,7 +152,7 @@ func (vq *VehicleQuerier) queryFuelMap() (map[string][]float64, error) {
 	}, nil
 }
 
-func (vq *VehicleQuerier) querySupportedPIDs() (map[string][]string, error) {
+func (vq *VehicleQuerier) QuerySupportedPIDs() (map[string][]string, error) {
 	// Query supported PIDs for each mode
 	return map[string][]string{
 		"01": {"0C", "0D", "0E", "0F"},

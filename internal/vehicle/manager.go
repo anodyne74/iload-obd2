@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"iload-obd2/internal/analysis"
+	"github.com/anodyne74/iload-obd2/internal/analysis"
 )
 
 // Manager handles vehicle connections and state management

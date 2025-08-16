@@ -5,7 +5,7 @@ import (
 	"math"
 	"time"
 
-	"iload-obd2/internal/capture"
+	"github.com/anodyne74/iload-obd2/internal/capture"
 )
 
 // Analyzer processes capture sessions to generate analysis results

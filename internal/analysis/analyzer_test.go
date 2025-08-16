@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"iload-obd2/internal/capture"
+	"github.com/anodyne74/iload-obd2/internal/capture"
 )
 
 func TestAnalyzer(t *testing.T) {

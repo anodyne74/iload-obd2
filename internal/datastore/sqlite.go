@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"iload-obd2/internal/vehicle"
+	"github.com/anodyne74/iload-obd2/internal/vehicle"
 
 	_ "github.com/mattn/go-sqlite3"
 )

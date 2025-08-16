@@ -16,7 +16,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/rzetterberg/elmobd"
 
-	"iload-obd2/internal/transport"
+	"github.com/anodyne74/iload-obd2/internal/transport"
 )
 
 var upgrader = websocket.Upgrader{

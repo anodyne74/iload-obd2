@@ -4,7 +4,7 @@ import (
 	"log"
 	"time"
 
-	"iload-obd2/testing/simulator"
+	"github.com/anodyne74/iload-obd2/testing/simulator"
 )
 
 func main() {
