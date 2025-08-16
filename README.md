@@ -2,9 +2,9 @@
 CANBUS data logger and diagnostic tool for Hyundai iLoad/H-1
 
 ## Overview
-This application provides a real-time dashboard for monitoring and diagnosing Hyundai iLoad/H-1 vehicles through OBD2 and CANBUS interfaces. It's designed to run on a Raspberry Pi 4 with a tablet interface.
+This application provides a comprehensive platform for monitoring, diagnosing, and analyzing vehicle data through OBD2 and CANBUS interfaces. While initially designed for Hyundai iLoad/H-1 vehicles, the architecture supports multiple vehicle types and can be extended for other manufacturers.
 
-## Features
+## Core Features
 - Real-time monitoring of:
   - Engine RPM
   - Vehicle Speed
@@ -38,26 +38,53 @@ This application provides a real-time dashboard for monitoring and diagnosing Hy
   - Hyundai H-1
   - Compatible with 2.5L CRDi diesel engine
 
-## Software Components
+## Software Architecture
 
-### Backend (Go)
-- Transport Layer:
-  - Serial OBD-II interface via `github.com/rzetterberg/elmobd`
-  - TCP connection for testing/simulation
-  - Direct CAN bus access using `github.com/brutella/can`
-  - Modular design for easy extension
+### Backend Components (Go)
 
-- Data Collection:
-  - Real-time OBD-II parameter monitoring
-  - CAN frame capture and processing
-  - Engine map data collection
-  - ECU information retrieval
+#### Transport Layer
+- Serial OBD-II interface via `github.com/rzetterberg/elmobd`
+- TCP connection for testing/simulation
+- Direct CAN bus access using `github.com/brutella/can`
+- Modular design for easy extension
 
-- Communication:
-  - WebSocket server for real-time updates
-  - JSON-based telemetry protocol
-  - Configurable update intervals
-  - Automatic connection management
+#### Data Collection (`capture` package)
+- Real-time OBD-II parameter monitoring
+- CAN frame capture and processing
+- Engine map data collection
+- ECU information retrieval
+- Session management
+- Data validation and preprocessing
+
+#### Analysis Engine (`analysis` package)
+- Real-time performance analysis
+- Driving behavior classification
+- Statistical computations
+- Anomaly detection
+- Efficiency scoring
+- Pattern recognition
+
+#### Vehicle Management (`vehicle` package)
+- Multi-vehicle support
+- Vehicle profiles and configurations
+- State management
+- Maintenance tracking
+- Alert management
+- Service scheduling
+
+#### Data Persistence (`datastore` package)
+- Hybrid storage (SQLite + InfluxDB)
+- Query optimization
+- Data retention policies
+- Backup management
+- Performance metrics
+- Historical analysis
+
+#### Communication
+- WebSocket server for real-time updates
+- JSON-based telemetry protocol
+- Configurable update intervals
+- Automatic connection management
 
 ### Frontend
 - Real-time Dashboard:
@@ -113,40 +140,78 @@ The system includes comprehensive diagnostic code coverage:
 
 ## Installation
 
-1. Prerequisites:
+### Prerequisites
+1. System Requirements:
    - Go 1.21 or later
+   - SQLite 3
+   - InfluxDB 2.x
    - For CAN bus support:
      - Windows: Compatible CAN adapter and drivers
      - Linux: CAN interface configured (`can0`)
 
-2. Clone the repository:
-```bash
-git clone https://github.com/anodyne74/iload-obd2.git
-cd iload-obd2
-```
+2. Database Setup:
+   ```bash
+   # Install InfluxDB
+   wget https://dl.influxdata.com/influxdb/releases/influxdb2-latest-amd64.deb
+   sudo dpkg -i influxdb2-latest-amd64.deb
+   sudo service influxdb start
 
-3. Install dependencies:
-```bash
-go mod tidy
-```
+   # Configure InfluxDB
+   influx setup \
+     --org your-org \
+     --bucket vehicle-telemetry \
+     --username admin \
+     --password your-password \
+     --token your-token \
+     --force
+   ```
 
-4. Build the application:
-```bash
-go build
-```
+3. Clone and Build:
+   ```bash
+   # Clone repository
+   git clone https://github.com/anodyne74/iload-obd2.git
+   cd iload-obd2
 
-5. Run with different options:
+   # Install dependencies
+   go mod tidy
 
-```bash
-# Use serial connection (default)
-./iload-obd2
+   # Build application
+   go build ./...
+   ```
 
-# Use TCP connection for testing
-./iload-obd2 --test-tcp --tcp-addr localhost:6789
+4. Configuration:
+   Create `config.yaml`:
+   ```yaml
+   datastore:
+     sqlite:
+       path: "./data/vehicles.db"
+     influxdb:
+       url: "http://localhost:8086"
+       org: "your-org"
+       bucket: "vehicle-telemetry"
+       token: "your-token"
+   
+   vehicle:
+     default_thresholds:
+       rpm_redline: 6000
+       coolant_temp_max: 105
+       engine_load_max: 90
+   ```
 
-# Use mock data
-./iload-obd2 --mock-data
-```
+5. Run the Application:
+   ```bash
+   # Start with default settings
+   ./iload-obd2
+
+   # Use specific configuration
+   ./iload-obd2 --config ./config.yaml
+
+   # Test mode with simulated data
+   ./iload-obd2 --test-mode
+
+   # Development mode with debug logging
+   ./iload-obd2 --debug
+   ```
 
 The web interface will be available at `http://localhost:8080`
 
@@ -170,32 +235,66 @@ The application supports several transport options:
 ./iload-obd2 --mock-data
 ```
 
+## Data Storage
+
+The application uses a hybrid storage approach to efficiently handle different types of vehicle data:
+
+### SQLite Storage (Structured Data)
+- Vehicle information and profiles
+- Maintenance records and service history
+- Performance reports and analytics
+- Alert history and diagnostics
+- Custom vehicle configurations
+
+### InfluxDB Storage (Time-Series Data)
+- Real-time telemetry data
+- GPS location tracking
+- Performance metrics
+- Sensor readings
+- Engine parameters
+
 ## WebSocket API
 
-The application provides a WebSocket endpoint at `/ws` that streams JSON telemetry data:
+The application provides WebSocket endpoints for real-time data:
 
+### Telemetry Data (`/ws/telemetry`)
 ```json
 {
-  "rpm": 2500,
-  "speed": 60,
-  "temp": 90,
-  "dtcs": [],
-  "ecuInfo": {
-    "version": "1.0",
-    "hardware": "...",
-    "protocol": "OBD-II"
+  "timestamp": "2025-08-16T10:00:00Z",
+  "vin": "1HGCM82633A123456",
+  "telemetry": {
+    "rpm": 2500,
+    "speed": 60,
+    "engine_load": 45.5,
+    "coolant_temp": 90,
+    "throttle_position": 25.0,
+    "dtcs": []
   },
-  "engineMaps": {
-    "fuel": { ... },
-    "timing": { ... }
-  },
-  "canFrames": [
-    {
-      "id": "0x123",
-      "data": "...",
-      "timestamp": "..."
-    }
-  ]
+  "location": {
+    "latitude": 51.5074,
+    "longitude": -0.1278,
+    "altitude": 100,
+    "speed": 60.5,
+    "heading": 180,
+    "fix_quality": 1
+  }
+}
+```
+
+### Analysis Data (`/ws/analysis`)
+```json
+{
+  "timestamp": "2025-08-16T10:00:00Z",
+  "vin": "1HGCM82633A123456",
+  "analysis": {
+    "efficiency_score": 85.5,
+    "driving_phase": "cruise",
+    "alerts": [{
+      "type": "engine_temp",
+      "severity": "warning",
+      "message": "Engine temperature approaching threshold"
+    }]
+  }
 }
 
 4. Access the dashboard:
