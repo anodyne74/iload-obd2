@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>iLoad OBD2 Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+</head>
+<body>
+    <header class="dashboard-header">
+        <div class="logo">
+            <i class="fas fa-car"></i>
+            <h1>iLoad OBD2 Dashboard</h1>
+        </div>
+        <div class="header-controls">
+            <div class="theme-toggle">
+                <input type="checkbox" id="theme-switch" class="theme-switch">
+                <label for="theme-switch" class="theme-switch-label">
+                    <i class="fas fa-sun"></i>
+                    <i class="fas fa-moon"></i>
+                </label>
+            </div>
+            <div class="connection-status">
+                <i class="fas fa-plug"></i>
+                <span>Connected</span>
+            </div>
+        </div>
+    </header>
+
+    <div class="dashboard">
+        <!-- Live Data Section -->
+        <div class="card metric-card">
+            <div class="card-header">
+                <i class="fas fa-tachometer-alt"></i>
+                <h2>Engine RPM</h2>
+            </div>
+            <div id="rpm" class="value">--</div>
+            <div id="rpm-gauge" class="gauge-container"></div>
+            <div id="rpm-history" class="history-chart"></div>
+        </div>
+        <div class="card metric-card">
+            <div class="card-header">
+                <i class="fas fa-gauge-high"></i>
+                <h2>Vehicle Speed</h2>
+            </div>
+            <div id="speed" class="value">-- km/h</div>
+            <div id="speed-gauge" class="gauge-container"></div>
+            <div id="speed-history" class="history-chart"></div>
+        </div>
+        <div class="card metric-card">
+            <div class="card-header">
+                <i class="fas fa-temperature-half"></i>
+                <h2>Engine Temperature</h2>
+            </div>
+            <div id="temp" class="value">-- °C</div>
+            <div id="temp-gauge" class="gauge-container"></div>
+            <div id="temp-history" class="history-chart"></div>
+        </div>
+
+        <!-- Vehicle Information -->
+        <div class="card full-width info-card">
+            <div class="tabs">
+                <div class="tab active" data-tab="ecu-info">
+                    <i class="fas fa-microchip"></i>
+                    <span>ECU Information</span>
+                </div>
+                <div class="tab" data-tab="engine-maps">
+                    <i class="fas fa-chart-area"></i>
+                    <span>Engine Maps</span>
+                </div>
+                <div class="tab" data-tab="dtc-codes">
+                    <i class="fas fa-triangle-exclamation"></i>
+                    <span>DTCs</span>
+                </div>
+            </div>
+
+            <!-- ECU Information Tab -->
+            <div id="ecu-info" class="tab-content active">
+                <div class="grid-2">
+                    <div class="info-grid">
+                        <span class="info-label"><i class="fas fa-code-branch"></i> ECU Version:</span>
+                        <span id="ecu-version" class="info-value">--</span>
+                        <span class="info-label"><i class="fas fa-microchip"></i> Hardware Number:</span>
+                        <span id="hw-number" class="info-value">--</span>
+                        <span class="info-label"><i class="fas fa-code"></i> Software Version:</span>
+                        <span id="sw-version" class="info-value">--</span>
+                        <span class="info-label"><i class="fas fa-fingerprint"></i> Calibration ID:</span>
+                        <span id="cal-id" class="info-value">--</span>
+                    </div>
+                    <div class="info-grid">
+                        <span class="info-label"><i class="fas fa-barcode"></i> VIN:</span>
+                        <span id="vin" class="info-value">--</span>
+                        <span class="info-label"><i class="fas fa-calendar"></i> Build Date:</span>
+                        <span id="build-date" class="info-value">--</span>
+                        <span class="info-label"><i class="fas fa-network-wired"></i> Protocol:</span>
+                        <span id="protocol" class="info-value">--</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Engine Maps Tab -->
+            <div id="engine-maps" class="tab-content">
+                <div class="grid-2">
+                    <div>
+                        <h3>Fuel Map</h3>
+                        <div id="fuel-map" class="map-container"></div>
+                    </div>
+                    <div>
+                        <h3>Timing Map</h3>
+                        <div id="timing-map" class="map-container"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- DTCs Tab -->
+            <div id="dtc-codes" class="tab-content">
+                <div id="dtc-list" class="dtc-list">
+                    No DTCs found
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="dtc-codes.js"></script>
+    <script src="dashboard.js"></script>
+</body>
+</html>
