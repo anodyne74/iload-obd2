@@ -41,10 +41,10 @@ func (sa *SessionAnalyzer) AnalyzeSession() (*AnalysisMetrics, error) {
 	}
 
 	var (
-		rpmSum, speedSum, tempSum       float64
-		rpmCount, speedCount, tempCount int
-		lastSpeed                       float64
-		lastTime                        int64
+		rpmSum, speedSum     float64
+		rpmCount, speedCount int
+		lastSpeed            float64
+		lastTime             int64
 	)
 
 	metrics.TotalFrames = len(sa.Session.Frames)
