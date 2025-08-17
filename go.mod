@@ -10,6 +10,7 @@ require (
 	github.com/mattn/go-sqlite3 v1.14.17
 	github.com/rzetterberg/elmobd v0.0.0-20240426091703-01e7bbc11e6c
 	github.com/tarm/serial v0.0.0-20180830185346-98f6abe2eb07
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (

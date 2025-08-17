@@ -6,9 +6,12 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/brutella/can"
@@ -16,6 +19,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/rzetterberg/elmobd"
 
+	"github.com/anodyne74/iload-obd2/internal/config"
 	"github.com/anodyne74/iload-obd2/internal/transport"
 )
 
@@ -145,19 +149,11 @@ func broadcastTelemetry(data TelemetryData) {
 }
 
 var (
-	useMockData   bool
-	useTestTCP    bool
-	tcpAddr       string
-	enableCapture bool
-	captureFile   string
+	configFile string
 )
 
 func init() {
-	flag.BoolVar(&useMockData, "mock-data", false, "Use mock data instead of real OBD2/CAN connection")
-	flag.BoolVar(&useTestTCP, "test-tcp", false, "Use TCP connection for testing")
-	flag.StringVar(&tcpAddr, "tcp-addr", "localhost:6789", "TCP address for test connection")
-	flag.BoolVar(&enableCapture, "capture", false, "Enable data capture")
-	flag.StringVar(&captureFile, "capture-file", "", "Specify custom capture file name")
+	flag.StringVar(&configFile, "config", "config.yaml", "Path to configuration file")
 	flag.Parse()
 }
 
@@ -257,34 +253,25 @@ func main() {
 	router.HandleFunc("/ws", wsHandler)
 	router.PathPrefix("/").Handler(http.FileServer(http.Dir("static")))
 
+	// Load configuration
+	cfg, err := config.LoadConfig(configFile)
+	if err != nil {
+		log.Fatalf("Error loading config: %v", err)
+	}
+
+	// Get server configuration
+	serverAddr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
+
 	go func() {
-		log.Printf("Starting web server on http://localhost:8080")
-		if err := http.ListenAndServe(":8080", router); err != nil {
+		log.Printf("Starting web server on http://%s", serverAddr)
+		if err := http.ListenAndServe(serverAddr, router); err != nil {
 			log.Fatal(err)
 		}
 	}()
 
 	// Initialize OBD connection
-	var config transport.Config
-
-	if useTestTCP {
-		config = transport.Config{
-			Type:    "tcp",
-			Address: tcpAddr,
-		}
-	} else if useMockData {
-		config = transport.Config{
-			Type: "mock",
-		}
-	} else {
-		config = transport.Config{
-			Type:     "serial",
-			Address:  "COM1", // Adjust port based on your Windows setup
-			BaudRate: 38400,
-		}
-	}
-
-	device, err := elmobd.NewDevice(config.Address, true) // true = debug mode
+	transportConfig := cfg.GetTransportConfig()
+	device, err := transport.NewDevice(transportConfig)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -409,6 +396,40 @@ func main() {
 		}()
 	}
 
-	// Block main thread
-	select {}
+	// Set up clean shutdown
+	stop := make(chan struct{})
+	done := make(chan struct{})
+
+	// Handle graceful shutdown
+	go func() {
+		defer close(done)
+		<-stop
+
+		// Clean up websocket connections
+		clientsMux.Lock()
+		for client := range clients {
+			client.Close()
+			delete(clients, client)
+		}
+		clientsMux.Unlock()
+
+		// Clean up CAN bus if available
+		if canBus != nil {
+			canBus.Disconnect()
+		}
+
+		// Note: elmobd.Device doesn't have a Close method,
+		// but the underlying serial/TCP connection will be closed when the program exits
+
+		log.Println("Cleanup completed")
+	}()
+
+	// Wait for interrupt signal
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+	<-sigChan
+
+	// Initiate shutdown
+	close(stop)
+	<-done // Wait for cleanup to complete
 }
