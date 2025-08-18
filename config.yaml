@@ -1,0 +1,33 @@
+transport:
+  type: serial  # Options: serial, tcp, mock
+  address: COM1  # Serial port or TCP address
+  baudRate: 38400  # Only for serial connections
+  debug: true  # Enable debug mode
+
+testing:
+  useMockData: true
+  useTestTCP: false
+  tcpAddress: localhost:6789
+
+capture:
+  enabled: false
+  filename: ""  # Leave empty for default name
+
+server:
+  port: 8080
+  host: localhost
+
+datastore:
+  sqlite:
+    path: "./data/vehicles.db"
+  influxdb:
+    url: "http://localhost:8086"
+    org: "your-org"
+    bucket: "vehicle-telemetry"
+    token: "your-token"
+
+vehicle:
+  default_thresholds:
+    rpm_redline: 6000
+    coolant_temp_max: 105
+    engine_load_max: 90

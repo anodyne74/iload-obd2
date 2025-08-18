@@ -1,0 +1,85 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "clean-build",
+            "type": "shell",
+            "command": "go clean; if ($?) { go build -v }",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "clear": true,
+                "showReuseMessage": false,
+                "close": false
+            },
+            "problemMatcher": ["$go"]
+        },
+        {
+            "label": "kill-dlv",
+            "type": "shell",
+            "windows": {
+                "command": "cmd.exe",
+                "args": [
+                    "/C",
+                    "taskkill /F /IM dlv.exe /T 2>nul || exit /b 0"
+                ]
+            },
+            "presentation": {
+                "reveal": "silent",
+                "panel": "new"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "build-and-run",
+            "type": "shell",
+            "command": "go build -v; if ($?) { .\\iload-obd2.exe -config config.yaml }",
+            "group": "none",
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            },
+            "problemMatcher": ["$go"]
+        },
+        {
+            "label": "run-tcp-simulator",
+            "type": "shell",
+            "command": "go run .\\testing\\cmd\\simulator_tcp\\main.go",
+            "group": "none",
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            },
+            "problemMatcher": ["$go"]
+        },
+        {
+            "label": "run-windows-simulator",
+            "type": "shell",
+            "command": "go run .\\testing\\cmd\\simulator_windows\\main.go",
+            "group": "none",
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            },
+            "problemMatcher": ["$go"]
+        },
+        {
+            "label": "test",
+            "type": "shell",
+            "command": "go test ./... -v",
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            },
+            "problemMatcher": ["$go"]
+        }
+    ]
+}
