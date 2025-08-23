@@ -10,7 +10,7 @@
 <body>
     <header class="dashboard-header">
         <div class="logo">
-            <i class="fas fa-car"></i>
+            <img src="images/logo.png" alt="iLoad Logo" class="logo-image">
             <h1>iLoad OBD2 Dashboard</h1>
         </div>
         <div class="header-controls">
@@ -32,12 +32,15 @@
         <!-- Live Data Section -->
         <div class="card metric-card">
             <div class="card-header">
-                <i class="fas fa-tachometer-alt"></i>
+                <img src="images/tachometer.png" alt="RPM" class="metric-icon">
                 <h2>Engine RPM</h2>
             </div>
             <div id="rpm" class="value">--</div>
             <div id="rpm-gauge" class="gauge-container"></div>
             <div id="rpm-history" class="history-chart"></div>
+            <div class="metric-image">
+                <img src="images/engine.png" alt="Engine" class="dashboard-image">
+            </div>
         </div>
         <div class="card metric-card">
             <div class="card-header">

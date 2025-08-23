@@ -1,0 +1,25 @@
+[Unit]
+Description=iLoad OBD2 Telemetry Service
+After=network.target influxdb.service
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/opt/iload-obd2
+ExecStart=/opt/iload-obd2/iload-obd2
+Restart=always
+RestartSec=5
+Environment=DISPLAY=:0
+
+# Security settings
+NoNewPrivileges=yes
+ProtectSystem=full
+ProtectHome=read-only
+PrivateTmp=yes
+
+# Logging
+StandardOutput=append:/var/log/iload-obd2/service.log
+StandardError=append:/var/log/iload-obd2/error.log
+
+[Install]
+WantedBy=multi-user.target
