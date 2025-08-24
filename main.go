@@ -502,10 +502,9 @@ func main() {
 								dtcs = append(dtcs, newDTCs...)
 							}
 						case <-timeout:
-							goto dtcsDone
+							break dtcLoop
 						}
 					}
-				dtcsDone:
 				}
 				telemetry.DTCs = dtcs
 			}
