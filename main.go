@@ -491,7 +491,8 @@ func main() {
 				} else {
 					// Wait up to 100ms for response
 					timeout := time.After(100 * time.Millisecond)
-					for {
+					timeoutReached := false
+					for !timeoutReached {
 						select {
 						case frame := <-frameChan:
 							if newDTCs := processDTCResponse(can.Frame{
@@ -502,7 +503,7 @@ func main() {
 								dtcs = append(dtcs, newDTCs...)
 							}
 						case <-timeout:
-							break dtcLoop
+							timeoutReached = true
 						}
 					}
 				}
