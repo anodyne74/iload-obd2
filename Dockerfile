@@ -15,9 +15,9 @@ RUN CGO_ENABLED=1 \
 FROM alpine:latest
 ARG TARGETOS
 
-# Install required packages (different for Windows/Linux)
+# Install required packages (only those needed for app)
 RUN if [ "$TARGETOS" = "linux" ]; then \
-        apk add --no-cache sqlite influxdb tzdata curl; \
+        apk add --no-cache sqlite tzdata curl; \
     fi
 
 # Create app user
