@@ -83,8 +83,8 @@ sudo apt install -y podman podman-compose   # Ubuntu/Debian
 # Create required directories with correct permissions
 mkdir -p data/sqlite data/influxdb logs
 sudo chown -R 1000:1000 data logs
-sudo semanage fcontext -a -t container_file_t "data(/.*)?
-sudo semanage fcontext -a -t container_file_t "logs(/.*)?
+sudo semanage fcontext -a -t container_file_t "data(/.*)?"
+sudo semanage fcontext -a -t container_file_t "logs(/.*)?"
 sudo restorecon -Rv data logs
 ```
 ```bash
