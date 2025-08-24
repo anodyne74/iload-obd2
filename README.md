@@ -97,10 +97,10 @@ cp config.docker.yaml config.yaml
 # Edit config.yaml with your settings
 
 # Build and start the services with Podman
-podman-compose up -d
+podman compose up -d
 
 # View logs
-podman-compose logs -f
+podman compose logs -f
 
 # For rootless containers, add your user to required groups
 sudo usermod -aG dialout $USER
