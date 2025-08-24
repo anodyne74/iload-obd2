@@ -2,39 +2,33 @@ version: '3.8'
 
 services:
   iload-obd2:
-    build: .
-    container_name: iload-obd2
+    build:
+      context: .
+      args:
+        TARGETOS: ${OS:-windows}
+        TARGETARCH: ${ARCH:-amd64}
     ports:
       - "8080:8080"
     volumes:
-      - ./data:/data:Z
-      - ./logs:/var/log/iload-obd2:Z
-      - /dev/ttyUSB0:/dev/ttyUSB0:Z  # For OBD2 adapter
-      - /dev/can0:/dev/can0:Z        # For CAN interface
-    group_add:
-      - "dialout"     # Required for serial port access
-    device_cgroup_rules:
-      - 'c *:* rmw'   # Allow access to character devices
-    security_opt:
-      - label=disable # SELinux adjustment for Podman
+      - type: bind
+        source: ${DEVICE_PATH:-\\.\COM3}
+        target: ${DEVICE_PATH:-\\.\COM3}
+    devices:
+      - ${DEVICE_PATH:-\\.\COM3}:${DEVICE_PATH:-\\.\COM3}
     environment:
       - TZ=UTC
     restart: unless-stopped
-    depends_on:
-      - influxdb
 
   influxdb:
     image: influxdb:2.7
-    container_name: influxdb
     ports:
       - "8086:8086"
     volumes:
-      - ./data/influxdb:/var/lib/influxdb2
+      - ./data/influxdb:C:/data/influxdb:rw
     environment:
       - DOCKER_INFLUXDB_INIT_MODE=setup
       - DOCKER_INFLUXDB_INIT_USERNAME=admin
       - DOCKER_INFLUXDB_INIT_PASSWORD=your_password
       - DOCKER_INFLUXDB_INIT_ORG=your_org
       - DOCKER_INFLUXDB_INIT_BUCKET=vehicle-telemetry
-      - DOCKER_INFLUXDB_INIT_RETENTION=30d
     restart: unless-stopped
