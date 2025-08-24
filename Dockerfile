@@ -5,12 +5,15 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
+ARG TARGETOS
+ARG TARGETARCH
 RUN CGO_ENABLED=1 \
     GOOS=${TARGETOS} \
     GOARCH=${TARGETARCH} \
     go build -ldflags="-w -s" -o iload-obd2
 
 FROM alpine:latest
+ARG TARGETOS
 
 # Install required packages (different for Windows/Linux)
 RUN if [ "$TARGETOS" = "linux" ]; then \
