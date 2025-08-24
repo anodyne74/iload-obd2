@@ -1,5 +1,8 @@
 FROM golang:1.25.0-alpine3.22 AS builder
 
+# Install build dependencies for CGO
+RUN apk add --no-cache gcc musl-dev
+
 WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
