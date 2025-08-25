@@ -264,8 +264,8 @@ func getEngineMaps(bus *can.Bus, frameChan chan CANFrame) (*EngineMaps, error) {
 			if frame.ID != 0x7E8 {
 				return 0, fmt.Errorf("unexpected response ID: %X", frame.ID)
 			}
-			if frame.Data[0] < 4 || frame.Data[1] != 0x49 { // 0x49 is response to mode 09
-				return 0, fmt.Errorf("invalid response format")
+			if frame.Data[0] < 5 || frame.Data[1] != 0x49 { // 0x49 is response to mode 09, and need at least 5 bytes
+				return 0, fmt.Errorf("invalid response format: insufficient data length")
 			}
 			// Convert 2 bytes to float64
 			value := float64(uint16(frame.Data[3])<<8 | uint16(frame.Data[4]))
