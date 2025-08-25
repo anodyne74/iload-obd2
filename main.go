@@ -364,8 +364,9 @@ func decodeDTC(b1, b2 byte) string {
 		dtcType = "U" // Network
 	}
 
-	// Format remaining bits as hex
-	return fmt.Sprintf("%s%02X%02X", dtcType, b1&0x3F, b2)
+	// Format remaining 14 bits as a single 4-digit hex value
+	code := uint16(b1&0x3F)<<8 | uint16(b2)
+	return fmt.Sprintf("%s%04X", dtcType, code)
 }
 
 func main() {
