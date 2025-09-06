@@ -1,0 +1,17 @@
+server:
+  host: "0.0.0.0"
+  port: 8080
+
+transport:
+  type: "can"
+  device: "can0"
+  baudrate: 500000
+
+datastore:
+  sqlite:
+    path: "/data/sqlite/vehicles.db"
+  influxdb:
+    url: "http://localhost:8086"
+    org: "your_org"
+    bucket: "vehicle-telemetry"
+    token: "your_token"

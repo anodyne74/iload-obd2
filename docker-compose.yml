@@ -1,0 +1,34 @@
+version: '3.8'
+
+services:
+  iload-obd2:
+    build:
+      context: .
+      args:
+        TARGETOS: ${OS:-windows}
+        TARGETARCH: ${ARCH:-amd64}
+    ports:
+      - "8080:8080"
+    volumes:
+      - type: bind
+        source: ${DEVICE_PATH:-\\.\COM3}
+        target: ${DEVICE_PATH:-\\.\COM3}
+    devices:
+      - ${DEVICE_PATH:-\\.\COM3}:${DEVICE_PATH:-\\.\COM3}
+    environment:
+      - TZ=UTC
+    restart: unless-stopped
+
+  influxdb:
+    image: influxdb:2.7
+    ports:
+      - "8086:8086"
+    volumes:
+      - ./data/influxdb:C:/data/influxdb:rw
+    environment:
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=admin
+      - DOCKER_INFLUXDB_INIT_PASSWORD=your_password
+      - DOCKER_INFLUXDB_INIT_ORG=your_org
+      - DOCKER_INFLUXDB_INIT_BUCKET=vehicle-telemetry
+    restart: unless-stopped

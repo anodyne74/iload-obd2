@@ -1,8 +1,32 @@
 # iload-obd2
-CANBUS data logger and diagnostic tool for Hyundai iLoad/H-1
+![iload](/static/images/my-vehicle-dark.png)
+
+A comprehensive vehicle telemetry and diagnostics platform for the Hyundai iLoad/H-1.
 
 ## Overview
-This application provides a comprehensive platform for monitoring, diagnosing, and analyzing vehicle data through OBD2 and CANBUS interfaces. While initially designed for Hyundai iLoad/H-1 vehicles, the architecture supports multiple vehicle types and can be extended for other manufacturers.
+
+This application provides real-time monitoring, diagnostics, and data analysis through OBD2 and CANBUS interfaces. While optimized for the Hyundai iLoad/H-1, the architecture supports multiple vehicle types and can be extended for other manufacturers.
+
+The platform combines modern web technologies with robust vehicle communication protocols to deliver:
+- Real-time performance monitoring
+- Comprehensive diagnostic capabilities
+- Data logging and analysis
+- Custom vehicle profiles and configurations
+
+## Quick Start
+
+### Container Deployment (Recommended)
+```bash
+# Clone the repository
+git clone https://github.com/anodyne74/iload-obd2.git
+cd iload-obd2
+
+# Start the application
+podman-compose up -d
+
+# Access the dashboard
+http://localhost:8080
+```
 
 ## Core Features
 - Real-time monitoring of:
@@ -29,8 +53,10 @@ This application provides a comprehensive platform for monitoring, diagnosing, a
   - Support for custom CAN frame handling
   - Configurable update intervals
 
-## Hardware Requirements
-- Raspberry Pi 4
+## Requirements
+
+### Hardware Requirements
+- Raspberry Pi 4 (recommended)
 - OBD2 adapter (USB or Bluetooth)
 - Tablet or device with web browser
 - Vehicle compatibility:
@@ -38,9 +64,103 @@ This application provides a comprehensive platform for monitoring, diagnosing, a
   - Hyundai H-1
   - Compatible with 2.5L CRDi diesel engine
 
-## Software Architecture
+### Software Prerequisites
+- Podman and Podman Compose installed
+- OBD2 adapter connected (USB or Bluetooth)
+- CAN interface configured (for direct CAN access)
 
-### Backend Components (Go)
+## Installation
+
+### Container Deployment (Recommended)
+
+#### First-time Setup
+```bash
+# Install Podman (if not already installed)
+sudo dnf install -y podman podman-compose   # Fedora/RHEL
+# or
+sudo apt install -y podman podman-compose   # Ubuntu/Debian
+
+# Create required directories with correct permissions
+mkdir -p data/sqlite data/influxdb logs
+sudo chown -R 1000:1000 data logs
+sudo semanage fcontext -a -t container_file_t "data(/.*)?"
+sudo semanage fcontext -a -t container_file_t "logs(/.*)?"
+sudo restorecon -Rv data logs
+```
+```bash
+# Clone the repository
+git clone https://github.com/anodyne74/iload-obd2.git
+cd iload-obd2
+
+# Configure the application
+cp config.docker.yaml config.yaml
+# Edit config.yaml with your settings
+
+# Build and start the services with Podman
+podman compose up -d
+
+# View logs
+podman compose logs -f
+
+# For rootless containers, add your user to required groups
+sudo usermod -aG dialout $USER
+sudo usermod -aG can $USER
+
+# Access the dashboard
+# http://localhost:8080 or http://raspberry-pi-ip:8080
+```
+
+### Troubleshooting Podman Setup
+
+1. **Permission Issues**
+```bash
+# If you see permission errors, try:
+sudo chown -R $USER:$USER data logs
+sudo chmod -R 755 data logs
+```
+
+2. **Device Access Issues**
+```bash
+# Check if your user has proper device access
+ls -l /dev/ttyUSB0
+ls -l /dev/can0
+
+# Add current user to required groups
+sudo usermod -aG dialout,can $USER
+# Log out and back in for changes to take effect
+```
+
+3. **SELinux Issues**
+```bash
+# Temporarily disable SELinux for testing
+sudo setenforce 0
+
+# For permanent solution, create proper SELinux context
+sudo semanage fcontext -a -t container_file_t "/path/to/iload-obd2/data(/.*)?"
+sudo restorecon -Rv /path/to/iload-obd2/data
+```
+
+## Platform-Specific Configuration
+
+### Raspberry Pi Setup
+```bash
+# Configure CAN interface
+sudo ip link set can0 up type can bitrate 500000
+
+# Make CAN interface persistent
+sudo nano /etc/network/interfaces.d/can0
+# Add these lines:
+# auto can0
+# iface can0 inet manual
+#     pre-up ip link set $IFACE type can bitrate 500000
+#     up ip link set $IFACE up
+#     down ip link set $IFACE down
+```
+
+
+## Technical Architecture
+
+### System Components
 
 #### Transport Layer
 - Serial OBD-II interface via `github.com/rzetterberg/elmobd`
@@ -306,9 +426,9 @@ The application uses the following default ports:
 - Web Interface: 8080
 - OBD2/CANBUS: /dev/ttyUSB0 (adjustable in configuration)
 
-## Testing and Development
+## Development Guide
 
-### Local Testing Environment
+### Testing Environment Setup
 You can test the application without an actual vehicle using the virtual CAN interface (vcan):
 
 1. Set up virtual CAN interface (Linux/WSL):
