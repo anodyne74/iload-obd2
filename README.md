@@ -789,3 +789,13 @@ Contributions are welcome! Please feel free to submit pull requests, particularl
 - Enhanced sensor support
 - UI improvements
 - Documentation updates
+
+---
+
+## Raspberry Pi: Auto-Start on CAN Bus Detection
+
+iLoad-OBD2 can be configured to automatically launch when the CAN bus (e.g., `can0`) becomes available on a Raspberry Pi. This is useful for in-vehicle deployments.
+
+### Quick Setup
+
+1. **Run the provided setup script:**
