@@ -71,92 +71,132 @@ http://localhost:8080
 
 ## Installation
 
-### Container Deployment (Recommended)
+### Raspberry Pi Setup (Recommended Method)
 
-#### First-time Setup
+1. **Install Required Packages**
 ```bash
-# Install Podman (if not already installed)
-sudo dnf install -y podman podman-compose   # Fedora/RHEL
-# or
-sudo apt install -y podman podman-compose   # Ubuntu/Debian
+# Update system
+sudo apt update
+sudo apt upgrade -y
 
-# Create required directories with correct permissions
-mkdir -p data/sqlite data/influxdb logs
-sudo chown -R 1000:1000 data logs
-sudo semanage fcontext -a -t container_file_t "data(/.*)?"
-sudo semanage fcontext -a -t container_file_t "logs(/.*)?"
-sudo restorecon -Rv data logs
+# Install Podman and dependencies
+sudo apt install -y podman podman-compose
+
+# Install CAN utilities
+sudo apt install -y can-utils
 ```
+
+2. **Configure CAN Interface**
 ```bash
-# Clone the repository
-git clone https://github.com/anodyne74/iload-obd2.git
-cd iload-obd2
+# Load kernel modules
+sudo modprobe can
+sudo modprobe can_raw
 
-# Configure the application
-cp config.docker.yaml config.yaml
-# Edit config.yaml with your settings
+# Set up CAN interface (adjust bitrate as needed)
+sudo ip link set can0 type can bitrate 500000
+sudo ip link set up can0
 
-# Build and start the services with Podman
-podman compose up -d
+# Make CAN settings persistent
+echo "
+# CAN interface configuration
+auto can0
+iface can0 inet manual
+    pre-up /sbin/ip link set $IFACE type can bitrate 500000
+    up /sbin/ip link set $IFACE up
+    down /sbin/ip link set $IFACE down
+" | sudo tee /etc/network/interfaces.d/can0
+```
 
-# View logs
-podman compose logs -f
+3. **Set Up Application Directory**
+```bash
+# Create application directories
+mkdir -p ~/iload-obd2/data/{sqlite,influxdb} ~/iload-obd2/logs
 
-# For rootless containers, add your user to required groups
+# Set permissions
+chmod 755 ~/iload-obd2
+chmod -R 777 ~/iload-obd2/data ~/iload-obd2/logs
+
+# Add current user to required groups
 sudo usermod -aG dialout $USER
-sudo usermod -aG can $USER
-
-# Access the dashboard
-# http://localhost:8080 or http://raspberry-pi-ip:8080
+sudo usermod -aG gpio $USER
 ```
 
-### Troubleshooting Podman Setup
+4. **Deploy Application**
+```bash
+# Clone repository
+git clone https://github.com/anodyne74/iload-obd2.git ~/iload-obd2
+cd ~/iload-obd2
+
+# Copy and configure settings
+cp config.example.yaml config.yaml
+nano config.yaml  # Edit settings as needed
+
+# Start services
+podman-compose up -d
+
+# Check logs
+podman-compose logs -f
+```
+
+5. **Configure Auto-start (Optional)**
+```bash
+# Create systemd user directory
+mkdir -p ~/.config/systemd/user/
+
+# Create service file
+echo "[Unit]
+Description=iLoad OBD2 Monitor
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/iload-obd2
+ExecStart=/usr/bin/podman-compose up
+ExecStop=/usr/bin/podman-compose down
+
+[Install]
+WantedBy=default.target" > ~/.config/systemd/user/iload-obd2.service
+
+# Enable and start service
+systemctl --user enable iload-obd2
+systemctl --user start iload-obd2
+
+# Enable lingering for user service
+sudo loginctl enable-linger $USER
+```
+
+### Troubleshooting
 
 1. **Permission Issues**
 ```bash
-# If you see permission errors, try:
-sudo chown -R $USER:$USER data logs
-sudo chmod -R 755 data logs
+# Check device permissions
+ls -l /dev/ttyUSB0  # For USB OBD adapter
+ls -l /dev/can0     # For CAN interface
+
+# Verify group membership
+groups $USER
 ```
 
-2. **Device Access Issues**
+2. **Device Access**
 ```bash
-# Check if your user has proper device access
-ls -l /dev/ttyUSB0
-ls -l /dev/can0
+# Test CAN interface
+candump can0
 
-# Add current user to required groups
-sudo usermod -aG dialout,can $USER
-# Log out and back in for changes to take effect
+# Test USB device
+sudo dmesg | grep tty
 ```
 
-3. **SELinux Issues**
+3. **Container Issues**
 ```bash
-# Temporarily disable SELinux for testing
-sudo setenforce 0
+# Check container logs
+podman logs iload-obd2
 
-# For permanent solution, create proper SELinux context
-sudo semanage fcontext -a -t container_file_t "/path/to/iload-obd2/data(/.*)?"
-sudo restorecon -Rv /path/to/iload-obd2/data
+# Check container status
+podman ps -a
+
+# Restart containers
+podman-compose restart
 ```
-
-## Platform-Specific Configuration
-
-### Raspberry Pi Setup
-```bash
-# Configure CAN interface
-sudo ip link set can0 up type can bitrate 500000
-
-# Make CAN interface persistent
-sudo nano /etc/network/interfaces.d/can0
-# Add these lines:
-# auto can0
-# iface can0 inet manual
-#     pre-up ip link set $IFACE type can bitrate 500000
-#     up ip link set $IFACE up
-#     down ip link set $IFACE down
-```
-
 
 ## Technical Architecture
 
