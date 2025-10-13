@@ -80,6 +80,47 @@
                 "panel": "new"
             },
             "problemMatcher": ["$go"]
+        },
+        {
+            "label": "build-pi",
+            "type": "shell",
+            "windows": {
+                "command": "cmd",
+                "args": [
+                    "/C",
+                    "set CGO_ENABLED=1&&set GOOS=linux&&set GOARCH=arm64&&go build -o build/iload-obd2"
+                ]
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            },
+            "problemMatcher": "$go"
+        },
+        {
+            "label": "deploy-pi",
+            "type": "shell",
+            "windows": {
+                "command": "cmd",
+                "args": [
+                    "/C",
+                    "scp build/iload-obd2 pi@${input:piAddress}:/tmp/ && ssh pi@${input:piAddress} \"sudo bash -c 'systemctl stop iload-obd2 && mv /tmp/iload-obd2 /opt/iload-obd2/bin/ && systemctl start iload-obd2'\""
+                ]
+            },
+            "dependsOn": ["build-pi"],
+            "problemMatcher": []
+        }
+    ],
+    "inputs": [
+        {
+            "id": "piAddress",
+            "type": "promptString",
+            "description": "Raspberry Pi IP address",
+            "default": "raspberrypi.local"
         }
     ]
 }

@@ -1,0 +1,6 @@
+{
+    "remote.SSH.remotePlatform": {
+        "raspberrypi": "linux"
+    },
+    "remote.SSH.showLoginTerminal": true
+}

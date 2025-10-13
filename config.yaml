@@ -22,9 +22,9 @@ datastore:
     path: "./data/vehicles.db"
   influxdb:
     url: "http://localhost:8086"
-    org: "your-org"
     bucket: "vehicle-telemetry"
-    token: "your-token"
+    username: "admin"
+    password: "admin"
 
 vehicle:
   default_thresholds:
