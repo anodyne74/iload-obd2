@@ -4,12 +4,15 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"log"
 	"os"
 
 	"github.com/anodyne74/iload-obd2/vehicle"
 	"github.com/rzetterberg/elmobd"
+
+	"github.com/anodyne74/iload-obd2/pkg/logger"
 )
+
+var log = logger.Get("query")
 
 func main() {
 	var (
@@ -28,7 +31,7 @@ func main() {
 	// Initialize OBD connection
 	dev, err := elmobd.NewDevice("/dev/ttyUSB0", false)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalw("Failed to initialise device", "device", "/dev/ttyUSB0", "error", err)
 	}
 
 	querier := vehicle.NewVehicleQuerier(dev)

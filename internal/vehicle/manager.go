@@ -6,7 +6,11 @@ import (
 	"time"
 
 	"github.com/anodyne74/iload-obd2/internal/analysis"
+	"github.com/anodyne74/iload-obd2/pkg/logger"
+	"go.uber.org/zap"
 )
+
+var vehicleLog = logger.Get("vehicle")
 
 // Manager handles vehicle connections and state management
 type Manager struct {
@@ -29,6 +33,7 @@ func (m *Manager) RegisterVehicle(vin, manufacturer, model string, year int) (*V
 	defer m.mu.Unlock()
 
 	if _, exists := m.vehicles[vin]; exists {
+		vehicleLog.Errorf("vehicle already registered", "vin", vin)
 		return nil, fmt.Errorf("vehicle with VIN %s already registered", vin)
 	}
 
@@ -54,6 +59,7 @@ func (m *Manager) GetVehicle(vin string) (*Vehicle, error) {
 
 	v, exists := m.vehicles[vin]
 	if !exists {
+		vehicleLog.Errorf("vehicle not found", "vin", vin)
 		return nil, fmt.Errorf("vehicle with VIN %s not found", vin)
 	}
 	return v, nil
@@ -66,6 +72,7 @@ func (m *Manager) UpdateVehicleState(vin string, state State) error {
 
 	v, exists := m.vehicles[vin]
 	if !exists {
+		vehicleLog.Errorf("vehicle not found", "vin", vin)
 		return fmt.Errorf("vehicle with VIN %s not found", vin)
 	}
 
@@ -91,6 +98,7 @@ func (m *Manager) GetProfile(make, model string) (*Profile, error) {
 	key := fmt.Sprintf("%s-%s", make, model)
 	profile, exists := m.profiles[key]
 	if !exists {
+		vehicleLog.Errorf("profile not found", "make", make, "model", model)
 		return nil, fmt.Errorf("profile for %s %s not found", make, model)
 	}
 	return profile, nil
@@ -192,6 +200,7 @@ func getValueForPID(state State, pid string) (float64, bool) {
 func (m *Manager) AnalyzePerformance(analyzer *analysis.Analyzer) (*PerformanceReport, error) {
 	results, err := analyzer.Analyze()
 	if err != nil {
+		vehicleLog.Errorw("analysis failed", "error", err, "stack", zap.Stack("").String)
 		return nil, fmt.Errorf("analysis failed: %w", err)
 	}
 

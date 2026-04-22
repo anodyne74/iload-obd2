@@ -1,25 +1,33 @@
 transport:
-  type: serial  # Options: serial, tcp, mock
-  address: COM1  # Serial port or TCP address
-  baudRate: 38400  # Only for serial connections
+  type: serial  # Options: serial, tcp, mock, ble
+  address: COM1  # Serial port for USB OBD2 adapter
+  baudRate: 38400  # Common baud rate for OBD2
   debug: true  # Enable debug mode
+  ble:
+    deviceName: ""  # Optional BLE peripheral name filter, e.g. OBDLink MX+
+    macAddress: ""  # Preferred for reliability, e.g. AA:BB:CC:DD:EE:FF
+    serviceUUID: "6E400001-B5A3-F393-E0A9-E50E24DCCA9E"
+    writeCharUUID: "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"
+    notifyCharUUID: "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"
+    scanTimeoutSeconds: 12
+    commandTimeoutMS: 1500
 
 testing:
-  useMockData: true
+  useMockData: false  # Disable mock data in production
   useTestTCP: false
   tcpAddress: localhost:6789
 
 capture:
   enabled: false
-  filename: ""  # Leave empty for default name
+  filename: "/opt/iload-obd2/data/captures/capture.csv"  # Absolute path for captures
 
 server:
   port: 8080
-  host: localhost
+  host: 0.0.0.0  # Allow external connections
 
 datastore:
   sqlite:
-    path: "./data/vehicles.db"
+    path: "/opt/iload-obd2/data/sqlite/vehicles.db"  # Absolute path
   influxdb:
     url: "http://localhost:8086"
     bucket: "vehicle-telemetry"

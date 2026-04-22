@@ -76,3 +76,23 @@ func (s *Session) Save() error {
 
 	return nil
 }
+
+// LoadSession reads a session JSON file from disk.
+func LoadSession(filePath string) (*Session, error) {
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read session file: %w", err)
+	}
+
+	var session Session
+	if err := json.Unmarshal(data, &session); err != nil {
+		return nil, fmt.Errorf("failed to parse session file: %w", err)
+	}
+
+	session.filePath = filePath
+	if session.Metadata == nil {
+		session.Metadata = make(map[string]string)
+	}
+
+	return &session, nil
+}

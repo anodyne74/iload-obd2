@@ -18,8 +18,16 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/rzetterberg/elmobd"
 
+	"github.com/anodyne74/iload-obd2/internal/capture"
 	"github.com/anodyne74/iload-obd2/internal/config"
 	"github.com/anodyne74/iload-obd2/internal/transport"
+	"github.com/anodyne74/iload-obd2/pkg/logger"
+)
+
+var (
+	version    = "dev"
+	configPath = flag.String("config", "config.yaml", "path to config file")
+	debug      = flag.Bool("debug", false, "enable debug logging")
 )
 
 var upgrader = websocket.Upgrader{
@@ -50,13 +58,35 @@ type EngineMaps struct {
 }
 
 type TelemetryData struct {
-	RPM        float64     `json:"rpm,omitempty"`
-	Speed      float64     `json:"speed,omitempty"`
-	Temp       float64     `json:"temp,omitempty"`
-	DTCs       []string    `json:"dtcs,omitempty"`
-	ECUInfo    *ECUInfo    `json:"ecuInfo,omitempty"`
-	EngineMaps *EngineMaps `json:"engineMaps,omitempty"`
-	CANFrames  []CANFrame  `json:"canFrames,omitempty"`
+	RPM        float64       `json:"rpm,omitempty"`
+	Speed      float64       `json:"speed,omitempty"`
+	Temp       float64       `json:"temp,omitempty"`
+	DTCs       []string      `json:"dtcs,omitempty"`
+	ECUInfo    *ECUInfo      `json:"ecuInfo,omitempty"`
+	EngineMaps *EngineMaps   `json:"engineMaps,omitempty"`
+	CANFrames  []CANFrame    `json:"canFrames,omitempty"`
+	Capture    *CaptureState `json:"capture,omitempty"`
+}
+
+type CaptureState struct {
+	Status          string `json:"status"`
+	FrameCount      int    `json:"frameCount,omitempty"`
+	DurationSeconds int64  `json:"durationSeconds,omitempty"`
+}
+
+type CaptureCommand struct {
+	Command string `json:"command"`
+	Label   string `json:"label,omitempty"`
+}
+
+type CaptureControlResponse struct {
+	Type            string `json:"type"`
+	Status          string `json:"status,omitempty"`
+	Message         string `json:"message,omitempty"`
+	Error           string `json:"error,omitempty"`
+	FilePath        string `json:"filePath,omitempty"`
+	FrameCount      int    `json:"frameCount,omitempty"`
+	DurationSeconds int64  `json:"durationSeconds,omitempty"`
 }
 
 // CANFrame represents a CAN bus frame
@@ -84,7 +114,147 @@ func (h *CANHandler) Handle(frame can.Frame) {
 var (
 	clients    = make(map[*websocket.Conn]bool)
 	clientsMux sync.Mutex
+	recorder   *capture.Recorder
+	recorderMu sync.Mutex
+	recordedAt time.Time
 )
+
+func currentCaptureState() *CaptureState {
+	recorderMu.Lock()
+	defer recorderMu.Unlock()
+
+	if recorder == nil || !recorder.IsRunning() {
+		return &CaptureState{Status: "idle"}
+	}
+
+	return &CaptureState{
+		Status:          "recording",
+		FrameCount:      recorder.FrameCount(),
+		DurationSeconds: int64(time.Since(recordedAt).Seconds()),
+	}
+}
+
+func writeCaptureResponse(ws *websocket.Conn, resp CaptureControlResponse) {
+	payload, err := json.Marshal(resp)
+	if err != nil {
+		log.Printf("Error marshaling capture response: %v", err)
+		return
+	}
+
+	if err := ws.WriteMessage(websocket.TextMessage, payload); err != nil {
+		log.Printf("Error sending capture response: %v", err)
+	}
+}
+
+func handleCaptureCommand(ws *websocket.Conn, cmd CaptureCommand) {
+	command := strings.ToLower(strings.TrimSpace(cmd.Command))
+
+	switch command {
+	case "start", "start_capture":
+		recorderMu.Lock()
+		if recorder != nil && recorder.IsRunning() {
+			recorderMu.Unlock()
+			writeCaptureResponse(ws, CaptureControlResponse{
+				Type:   "capture_control",
+				Status: "error",
+				Error:  "capture is already running",
+			})
+			return
+		}
+
+		newRecorder := capture.NewRecorder("Hyundai iLoad")
+		newRecorder.SetMetadata("source", "app")
+		newRecorder.SetMetadata("transport", "ble")
+		if cmd.Label != "" {
+			newRecorder.SetMetadata("label", cmd.Label)
+		}
+
+		if err := newRecorder.Start(); err != nil {
+			recorderMu.Unlock()
+			writeCaptureResponse(ws, CaptureControlResponse{
+				Type:   "capture_control",
+				Status: "error",
+				Error:  err.Error(),
+			})
+			return
+		}
+
+		recorder = newRecorder
+		recordedAt = time.Now()
+		recorderMu.Unlock()
+
+		writeCaptureResponse(ws, CaptureControlResponse{
+			Type:    "capture_control",
+			Status:  "recording",
+			Message: "capture started",
+		})
+
+	case "stop", "stop_capture":
+		recorderMu.Lock()
+		active := recorder
+		if active == nil || !active.IsRunning() {
+			recorderMu.Unlock()
+			writeCaptureResponse(ws, CaptureControlResponse{
+				Type:   "capture_control",
+				Status: "error",
+				Error:  "capture is not running",
+			})
+			return
+		}
+		frameCount := active.FrameCount()
+		duration := int64(time.Since(recordedAt).Seconds())
+		recorder = nil
+		recorderMu.Unlock()
+
+		if err := active.Stop(); err != nil {
+			writeCaptureResponse(ws, CaptureControlResponse{
+				Type:   "capture_control",
+				Status: "error",
+				Error:  err.Error(),
+			})
+			return
+		}
+
+		writeCaptureResponse(ws, CaptureControlResponse{
+			Type:            "capture_control",
+			Status:          "stopped",
+			Message:         "capture stopped",
+			FilePath:        active.SessionPath(),
+			FrameCount:      frameCount,
+			DurationSeconds: duration,
+		})
+
+	case "status", "capture_status":
+		state := currentCaptureState()
+		writeCaptureResponse(ws, CaptureControlResponse{
+			Type:            "capture_control",
+			Status:          state.Status,
+			FrameCount:      state.FrameCount,
+			DurationSeconds: state.DurationSeconds,
+		})
+
+	default:
+		writeCaptureResponse(ws, CaptureControlResponse{
+			Type:   "capture_control",
+			Status: "error",
+			Error:  "unknown command",
+		})
+	}
+}
+
+func recordTelemetryFrame(frame capture.Frame) {
+	recorderMu.Lock()
+	active := recorder
+	recorderMu.Unlock()
+
+	if active == nil || !active.IsRunning() {
+		return
+	}
+
+	if err := active.Record(frame); err != nil {
+		log.Printf("Error recording frame: %v", err)
+	}
+}
 
 func wsHandler(w http.ResponseWriter, r *http.Request) {
 	ws, err := upgrader.Upgrade(w, r, nil)
@@ -104,11 +274,23 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 		ws.Close()
 	}()
 
-	// Keep connection alive
+	// Keep connection alive and process optional control commands.
 	for {
-		if _, _, err := ws.ReadMessage(); err != nil {
+		_, message, err := ws.ReadMessage()
+		if err != nil {
 			break
 		}
+
+		var command CaptureCommand
+		if err := json.Unmarshal(message, &command); err != nil {
+			continue
+		}
+
+		if command.Command == "" {
+			continue
+		}
+
+		handleCaptureCommand(ws, command)
 	}
 }
 
@@ -370,6 +552,19 @@ func decodeDTC(b1, b2 byte) string {
 }
 
 func main() {
+	flag.Parse()
+
+	// Initialize logger
+	if err := logger.Init(version, "/opt/iload-obd2/logs/iload-obd2.log", *debug); err != nil {
+		os.Exit(1)
+	}
+
+	log := logger.Get("main")
+	log.Infow("Starting iLoad-OBD2",
+		"version", version,
+		"config", *configPath,
+	)
+
 	// Initialize HTTP server
 	router := mux.NewRouter()
 	router.HandleFunc("/ws", wsHandler)
@@ -514,6 +709,26 @@ func main() {
 			// Add ECU info and engine maps to telemetry
 			telemetry.ECUInfo = ecuInfo
 			telemetry.EngineMaps = engineMaps
+			telemetry.Capture = currentCaptureState()
+
+			recordTelemetryFrame(capture.Frame{
+				Timestamp: time.Now(),
+				Type:      "OBD2",
+				Decoded: map[string]interface{}{
+					"rpm":   telemetry.RPM,
+					"speed": telemetry.Speed,
+					"temp":  telemetry.Temp,
+					"dtcs":  telemetry.DTCs,
+				},
+			})
+
+			if telemetry.ECUInfo != nil && telemetry.ECUInfo.VIN != "" {
+				recorderMu.Lock()
+				if recorder != nil && recorder.IsRunning() {
+					recorder.SetMetadata("vin", telemetry.ECUInfo.VIN)
+				}
+				recorderMu.Unlock()
+			}
 
 			// Add any received CAN frames
 			if frameChan != nil {
@@ -522,6 +737,12 @@ func main() {
 					select {
 					case frame := <-frameChan:
 						telemetry.CANFrames = append(telemetry.CANFrames, frame)
+						recordTelemetryFrame(capture.Frame{
+							Timestamp: frame.Timestamp,
+							Type:      "CAN",
+							ID:        frame.ID,
+							Data:      frame.Data,
+						})
 					default:
 						goto done
 					}
@@ -560,6 +781,18 @@ func main() {
 	go func() {
 		defer close(done)
 		<-stop
+
+		recorderMu.Lock()
+		active := recorder
+		recorder = nil
+		recorderMu.Unlock()
+		if active != nil && active.IsRunning() {
+			if err := active.Stop(); err != nil {
+				log.Printf("Error stopping active capture during shutdown: %v", err)
+			} else {
+				log.Printf("Capture finalized at %s", active.SessionPath())
+			}
+		}
 
 		// Clean up websocket connections
 		clientsMux.Lock()

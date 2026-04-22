@@ -2,9 +2,12 @@ package capture
 
 import (
 	"fmt"
-	"log"
 	"time"
+
+	"github.com/anodyne74/iload-obd2/pkg/logger"
 )
+
+var log = logger.Get("replay")
 
 type Replayer struct {
 	Session      *Session

@@ -85,10 +85,11 @@
             "label": "build-pi",
             "type": "shell",
             "windows": {
-                "command": "cmd",
+                "command": "wsl",
                 "args": [
-                    "/C",
-                    "set CGO_ENABLED=1&&set GOOS=linux&&set GOARCH=arm64&&go build -o build/iload-obd2"
+                    "bash",
+                    "-c",
+                    "source ~/.profile && mkdir -p build && cp config.yaml build/ && GOOS=linux GOARCH=arm64 CGO_ENABLED=1 CC=aarch64-linux-gnu-gcc PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig go build -tags netgo -o build/iload-obd2"
                 ]
             },
             "group": {
@@ -97,21 +98,30 @@
             },
             "presentation": {
                 "reveal": "always",
-                "panel": "shared"
+                "panel": "shared",
+                "clear": true
             },
-            "problemMatcher": "$go"
+            "problemMatcher": ["$go"]
         },
         {
             "label": "deploy-pi",
             "type": "shell",
             "windows": {
-                "command": "cmd",
+                "command": "powershell",
                 "args": [
-                    "/C",
-                    "scp build/iload-obd2 pi@${input:piAddress}:/tmp/ && ssh pi@${input:piAddress} \"sudo bash -c 'systemctl stop iload-obd2 && mv /tmp/iload-obd2 /opt/iload-obd2/bin/ && systemctl start iload-obd2'\""
+                    "-NoProfile",
+                    "-ExecutionPolicy", "Bypass",
+                    "-Command",
+                    "@'\nWrite-Host 'Starting deployment...'\nif (!(Test-Path 'build/iload-obd2')) {\n    throw 'Build file not found'\n}\nWrite-Host 'Copying to Raspberry Pi...'\nscp 'build/*' '${input:piUser}@${input:piAddress}:/tmp'\nif ($LASTEXITCODE -eq 0) {\n    Write-Host 'Updating service...'\n    ssh '${input:piUser}@${input:piAddress}' 'sudo systemctl stop iload-obd2; sudo mv /tmp/iload-obd2 /opt/iload-obd2/bin/; sudo mv /tmp/config.yaml /opt/iload-obd2/config/; sudo chmod +x /opt/iload-obd2/bin/iload-obd2; sudo systemctl start iload-obd2'\n}\nelse {\n    throw 'SCP failed'\n}\n'@ | powershell -Command -"
                 ]
             },
             "dependsOn": ["build-pi"],
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "clear": true,
+                "close": false
+            },
             "problemMatcher": []
         }
     ],
@@ -121,6 +131,12 @@
             "type": "promptString",
             "description": "Raspberry Pi IP address",
             "default": "raspberrypi.local"
+        },
+        {
+            "id": "piUser",
+            "type": "promptString",
+            "description": "Raspberry Pi Username",
+            "default": "anodyne74"
         }
     ]
 }

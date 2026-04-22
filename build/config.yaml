@@ -1,0 +1,33 @@
+transport:
+  type: serial  # Options: serial, tcp, mock
+  address: COM1  # Serial port for USB OBD2 adapter
+  baudRate: 38400  # Common baud rate for OBD2
+  debug: true  # Enable debug mode
+
+testing:
+  useMockData: false  # Disable mock data in production
+  useTestTCP: false
+  tcpAddress: localhost:6789
+
+capture:
+  enabled: false
+  filename: "/opt/iload-obd2/data/captures/capture.csv"  # Absolute path for captures
+
+server:
+  port: 8080
+  host: 0.0.0.0  # Allow external connections
+
+datastore:
+  sqlite:
+    path: "/opt/iload-obd2/data/sqlite/vehicles.db"  # Absolute path
+  influxdb:
+    url: "http://localhost:8086"
+    bucket: "vehicle-telemetry"
+    username: "admin"
+    password: "admin"
+
+vehicle:
+  default_thresholds:
+    rpm_redline: 6000
+    coolant_temp_max: 105
+    engine_load_max: 90

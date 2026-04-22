@@ -3,13 +3,16 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"time"
 
 	"github.com/anodyne74/iload-obd2/capture"
+
+	"github.com/anodyne74/iload-obd2/pkg/logger"
 )
+
+var log = logger.Get("replay")
 
 func main() {
 	var (
@@ -35,7 +38,7 @@ func main() {
 
 	session, err := capture.LoadSession(captureFile)
 	if err != nil {
-		log.Fatalf("Failed to load session: %v", err)
+		log.Fatalf("Failed to load session", "file", captureFile, "error", err)
 	}
 
 	replayer := capture.NewReplayer(session)
@@ -54,7 +57,7 @@ func main() {
 func listCaptureFiles() {
 	files, err := filepath.Glob("captures/*.json")
 	if err != nil {
-		log.Fatalf("Failed to list capture files: %v", err)
+		log.Fatalf("Failed to list capture files", "error", err)
 	}
 
 	if len(files) == 0 {

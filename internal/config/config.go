@@ -14,6 +14,15 @@ type Config struct {
 		Address  string `yaml:"address"`
 		BaudRate int    `yaml:"baudRate"`
 		Debug    bool   `yaml:"debug"`
+		BLE      struct {
+			DeviceName         string `yaml:"deviceName"`
+			MACAddress         string `yaml:"macAddress"`
+			ServiceUUID        string `yaml:"serviceUUID"`
+			WriteCharUUID      string `yaml:"writeCharUUID"`
+			NotifyCharUUID     string `yaml:"notifyCharUUID"`
+			ScanTimeoutSeconds int    `yaml:"scanTimeoutSeconds"`
+			CommandTimeoutMS   int    `yaml:"commandTimeoutMS"`
+		} `yaml:"ble"`
 	} `yaml:"transport"`
 
 	Testing struct {
@@ -85,5 +94,15 @@ func (c *Config) GetTransportConfig() *transport.Config {
 		Type:     c.Transport.Type,
 		Address:  c.Transport.Address,
 		BaudRate: c.Transport.BaudRate,
+		Debug:    c.Transport.Debug,
+		BLE: transport.BLEConfig{
+			DeviceName:         c.Transport.BLE.DeviceName,
+			MACAddress:         c.Transport.BLE.MACAddress,
+			ServiceUUID:        c.Transport.BLE.ServiceUUID,
+			WriteCharUUID:      c.Transport.BLE.WriteCharUUID,
+			NotifyCharUUID:     c.Transport.BLE.NotifyCharUUID,
+			ScanTimeoutSeconds: c.Transport.BLE.ScanTimeoutSeconds,
+			CommandTimeoutMS:   c.Transport.BLE.CommandTimeoutMS,
+		},
 	}
 }

@@ -93,3 +93,17 @@ func (r *Recorder) IsRunning() bool {
 	defer r.mu.Unlock()
 	return r.running
 }
+
+// FrameCount returns the number of frames currently buffered in the active session.
+func (r *Recorder) FrameCount() int {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return len(r.session.Frames)
+}
+
+// SessionPath returns the save path for the session once persisted.
+func (r *Recorder) SessionPath() string {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.session.filePath
+}
