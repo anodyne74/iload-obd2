@@ -4,11 +4,11 @@
 A comprehensive vehicle telemetry and diagnostics platform for the Hyundai iLoad/H-1.
 
 ## Overview
-This application provides real-time monitoring, diagnostics, capture control, and data analysis through OBD2 and CANBUS interfaces. While optimized for the Hyundai iLoad/H-1, the architecture supports multiple vehicle types.
+This application provides real-time monitoring, diagnostics, capture control, and data analysis through a BLE OBD2 adapter workflow. While optimized for the Hyundai iLoad/H-1, the architecture supports multiple vehicle types.
 
 The repository currently contains two primary operator surfaces:
 - A Go backend that talks to vehicle transports, records telemetry/capture data, and exposes a WebSocket telemetry stream.
-- A native Android app in [android-app](android-app) that is replacing the earlier Raspberry Pi browser-based dashboard.
+- A native Android app in [android-app](android-app) that is replacing the earlier browser-based dashboard.
 
 ## Core Features
 - Real-time monitoring of:
@@ -19,120 +19,62 @@ The repository currently contains two primary operator surfaces:
   - ECU Information
   - DTCs (Diagnostic Trouble Codes)
   - Capture state and frame counts
-- Multiple Transport Options:
-  - Serial OBD-II Connection
-  - Direct CAN Bus Access
-  - TCP Connection (for testing/simulation)
+- OBD2 adapter transport support:
+  - BLE only
 - Live telemetry delivery over WebSocket for UI clients
 - Capture control commands for start, stop, and status
+- Capture metadata propagation for VIN/profile identity (`vin`, `profile_id`, `profile_version`, `profile_sync_state`, `make`, `model`, `year`)
+- Local profile cloud-sync API in backend:
+  - `POST /api/v1/vehicle-profiles/upsert`
+  - `GET /api/v1/vehicle-profiles`
 - Native Android client with:
   - Dashboard, ECU Info, Engine Maps, DTC, and Settings tabs
   - Runtime host/port/mode reconfiguration
   - WebSocket telemetry mode
   - BLE direct mode with paired-device picker, nearby device scan, RSSI sorting, and connection diagnostics
+  - Automatic vehicle profile creation when a new VIN is detected
+  - In-app vehicle profile editing (display name, notes, tags, make/model/year)
+  - Background profile sync with manual `Sync Profiles Now` and `Retry Failed Only` actions
+  - Profile sync diagnostics card (pending/failed/synced counts and last successful sync)
 
 ## Requirements
 
 ### Hardware
-- Raspberry Pi 4 (recommended)
-- OBD2 adapter (USB) or CAN interface
+- BLE-capable OBD2 adapter
 - Android device/emulator if using the native app
 
 ### Software Prerequisites
 - Go 1.21 or later
-- SQLite 3
-- InfluxDB 2.x
 - Android Studio (for Android app development)
+
+Notes:
+- SQLite/InfluxDB fields still exist in config for compatibility, but persistent vehicle profile and trip-history ownership is moving to cloud sync workflows.
+- Raspberry Pi is not required.
 
 ## Installation
 
-### Raspberry Pi Deployment (Recommended)
+### Local Setup
 
-1. **Install Required Packages**
-```bash
-# Update system
-sudo apt update
-sudo apt upgrade -y
-
-# Install SQLite and CAN utils
-sudo apt install -y sqlite3 can-utils
-
-# Install InfluxDB
-# Add InfluxData repository
-curl -s https://repos.influxdata.com/influxdata-archive_compat.key | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/influxdb.gpg
-
-echo "deb [signed-by=/etc/apt/trusted.gpg.d/influxdb.gpg] https://repos.influxdata.com/debian $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/influxdb.list
-
-# Update and install InfluxDB
-sudo apt update
-sudo apt install -y influxdb
-
-# Start InfluxDB service
-sudo systemctl enable influxdb
-sudo systemctl start influxdb
-
-# Configure InfluxDB (run these commands once)
-# Start influx CLI
-influx
-
-# Create database and user (run these in the influx CLI)
-CREATE DATABASE vehicle_telemetry
-CREATE USER admin WITH PASSWORD 'your-secure-password' WITH ALL PRIVILEGES
-EXIT
-
-# Update your config.yaml to match these settings:
-datastore:
-  influxdb:
-    url: "http://localhost:8086"
-    database: "vehicle_telemetry"
-    username: "admin"
-    password: "your-secure-password"
-```
-
-2. **Configure CAN Interface**
-```bash
-# Load kernel modules
-sudo modprobe can
-sudo modprobe can_raw
-
-# Set up CAN interface
-sudo ip link set can0 type can bitrate 500000
-sudo ip link set up can0
-```
-
-3. **Install Application**
+1. **Install Application**
 ```bash
 # Clone repository
 git clone https://github.com/anodyne74/iload-obd2.git
 cd iload-obd2
-
-# Run installation script
-sudo bash scripts/install.sh
 ```
 
-4. **Start Service**
+2. **Run backend locally (optional for WebSocket mode)**
 ```bash
-sudo systemctl enable iload-obd2
-sudo systemctl start iload-obd2
+go run .
 ```
 
 ### Configuration
 
-Edit `/opt/iload-obd2/config/config.yaml`:
+Edit `config.yaml`:
 ```yaml
-datastore:
-  sqlite:
-    path: "/opt/iload-obd2/data/sqlite/vehicles.db"
-  influxdb:
-    url: "http://localhost:8086"
-    org: "your-org"
-    bucket: "vehicle-telemetry"
-    token: "your-token"
-
 transport:
-  type: "can"  # or "serial" for OBD2 adapter
-  device: "can0"  # or "/dev/ttyUSB0" for serial
-  baudrate: 500000
+  type: "ble"
+  ble:
+    macAddress: "AA:BB:CC:DD:EE:FF"
 ```
 
 ## Development
@@ -141,18 +83,10 @@ transport:
 1. **Prerequisites**
    - VS Code installed
    - Go extension installed
-   - Remote-SSH extension installed
 
-2. **Build and Deploy**
-   - Press `Ctrl+Shift+B` to build for Raspberry Pi
-   - Press `F1`, type "Tasks: Run Task", select "deploy-pi"
-   - Enter your Raspberry Pi's IP address when prompted
-
-3. **Remote Development**
-   - Press `F1`, type "Remote-SSH: Connect to Host"
-   - Enter `pi@raspberrypi.local` (or your Pi's IP)
-   - Open `/opt/iload-obd2` folder
-   - Use integrated terminal for commands
+2. **Build and Run**
+  - Use the default build/test tasks in VS Code
+  - Or run `go build ./...` and `go test ./...` in terminal
 
 ### Testing Environment
 ```bash
@@ -163,10 +97,20 @@ go test ./...
 go run .
 ```
 
+### Local Profile Sync API Smoke Test
+```bash
+# Upsert profile payload (local stub)
+curl -sS -X POST http://localhost:8080/api/v1/vehicle-profiles/upsert \
+  -H 'Content-Type: application/json' \
+  -d '{"profile":{"id":"profile-1","vin":"KMH12345678901234","displayName":"My iLoad"}}'
+
+# List stored profiles (local stub)
+curl -sS http://localhost:8080/api/v1/vehicle-profiles
+```
+
 ### Building
 ```bash
-# For Raspberry Pi (ARM64)
-GOOS=linux GOARCH=arm64 go build -o iload-obd2
+go build ./...
 ```
 
 ### Android App
@@ -178,6 +122,13 @@ Current Android implementation includes:
 - BLE permission handling and diagnostics
 - Paired-device refresh and nearby Bluetooth scan
 - RSSI-aware device ordering and stale-device pruning
+- Vehicle profile lifecycle:
+  - auto-create on first vehicle detection
+  - local JSON profile catalog persistence
+  - in-app profile editing
+  - periodic + manual cloud sync and failed-only retry
+- Profile sync diagnostics and status feedback in Settings
+- Capture start metadata enrichment with active profile identity fields
 
 To work on the Android app:
 1. Open [android-app](android-app) as a standalone project in Android Studio.
@@ -188,19 +139,23 @@ For Android-specific details, see [android-app/README.md](android-app/README.md)
 
 ## Troubleshooting
 
-1. **Check Service Status**
+1. **Backend startup issues**
 ```bash
-systemctl status iload-obd2
+go run .
 ```
 
-2. **View Logs**
+2. **Run tests**
 ```bash
-journalctl -u iload-obd2 -f
+go test ./...
 ```
 
-3. **Test CAN Interface**
+3. **Profile sync API smoke test**
 ```bash
-candump can0
+curl -sS -X POST http://localhost:8080/api/v1/vehicle-profiles/upsert \
+  -H 'Content-Type: application/json' \
+  -d '{"profile":{"id":"profile-1","vin":"KMH12345678901234","displayName":"My iLoad"}}'
+
+curl -sS http://localhost:8080/api/v1/vehicle-profiles
 ```
 
 ## Contributing
