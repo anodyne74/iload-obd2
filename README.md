@@ -4,7 +4,11 @@
 A comprehensive vehicle telemetry and diagnostics platform for the Hyundai iLoad/H-1.
 
 ## Overview
-This application provides real-time monitoring, diagnostics, and data analysis through OBD2 and CANBUS interfaces. While optimized for the Hyundai iLoad/H-1, the architecture supports multiple vehicle types.
+This application provides real-time monitoring, diagnostics, capture control, and data analysis through OBD2 and CANBUS interfaces. While optimized for the Hyundai iLoad/H-1, the architecture supports multiple vehicle types.
+
+The repository currently contains two primary operator surfaces:
+- A Go backend that talks to vehicle transports, records telemetry/capture data, and exposes a WebSocket telemetry stream.
+- A native Android app in [android-app](android-app) that is replacing the earlier Raspberry Pi browser-based dashboard.
 
 ## Core Features
 - Real-time monitoring of:
@@ -14,22 +18,31 @@ This application provides real-time monitoring, diagnostics, and data analysis t
   - Engine Maps (Fuel and Timing)
   - ECU Information
   - DTCs (Diagnostic Trouble Codes)
+  - Capture state and frame counts
 - Multiple Transport Options:
   - Serial OBD-II Connection
   - Direct CAN Bus Access
   - TCP Connection (for testing/simulation)
+- Live telemetry delivery over WebSocket for UI clients
+- Capture control commands for start, stop, and status
+- Native Android client with:
+  - Dashboard, ECU Info, Engine Maps, DTC, and Settings tabs
+  - Runtime host/port/mode reconfiguration
+  - WebSocket telemetry mode
+  - BLE direct mode with paired-device picker, nearby device scan, RSSI sorting, and connection diagnostics
 
 ## Requirements
 
 ### Hardware
 - Raspberry Pi 4 (recommended)
 - OBD2 adapter (USB) or CAN interface
-- Web browser for dashboard access
+- Android device/emulator if using the native app
 
 ### Software Prerequisites
 - Go 1.21 or later
 - SQLite 3
 - InfluxDB 2.x
+- Android Studio (for Android app development)
 
 ## Installation
 
@@ -143,11 +156,11 @@ transport:
 
 ### Testing Environment
 ```bash
-# Run with mock data
-go run main.go --mock-data
-
 # Run unit tests
 go test ./...
+
+# Run the backend locally
+go run .
 ```
 
 ### Building
@@ -155,6 +168,23 @@ go test ./...
 # For Raspberry Pi (ARM64)
 GOOS=linux GOARCH=arm64 go build -o iload-obd2
 ```
+
+### Android App
+The Android client lives in [android-app](android-app) and is designed to connect to the backend WebSocket stream or use BLE direct mode.
+
+Current Android implementation includes:
+- Dashboard telemetry and capture controls
+- ECU info, engine maps, and DTC views
+- BLE permission handling and diagnostics
+- Paired-device refresh and nearby Bluetooth scan
+- RSSI-aware device ordering and stale-device pruning
+
+To work on the Android app:
+1. Open [android-app](android-app) as a standalone project in Android Studio.
+2. Let Gradle sync complete.
+3. Run the `app` module on a device or emulator.
+
+For Android-specific details, see [android-app/README.md](android-app/README.md).
 
 ## Troubleshooting
 

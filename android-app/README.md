@@ -14,9 +14,20 @@ Implemented:
 - Connection settings persisted across app restarts
 - Engine maps parity screen with fuel/timing matrix visualization
 - DTC details view with built-in code description dictionary
+- BLE direct mode transport with bonded-device Bluetooth connection and JSON line parsing
+- Runtime BLE permission request flow when switching to BLE mode
+- Basic BLE device picker (paired-device list + manual address entry)
+- BLE settings notices for permission denial and empty paired-device state
+- Manual paired-device refresh action in Settings
+- BLE diagnostics panel (permission/adapter/Bluetooth/selected-device status)
+- Active nearby Bluetooth discovery scan from Settings
+- Explicit scan stop control and scan duration indicator in Settings
+- BLE MAC address normalization and format validation before apply
+- RSSI capture and strongest-signal-first ordering for discovered BLE devices
+- Signal quality badge and last-seen age labels in BLE picker
+- Automatic pruning of stale discovered BLE devices during longer sessions
 
 Not implemented yet:
-- Direct BLE mode for MX201
 - Full production-grade map visualization and interaction tooling
 
 ## Open in Android Studio

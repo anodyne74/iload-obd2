@@ -71,7 +71,7 @@ class DashboardViewModel(
         scope.launch {
             repository.disconnect()
             _connectionState.value = "disconnected"
+            scope.cancel()
         }
-        scope.cancel()
     }
 }

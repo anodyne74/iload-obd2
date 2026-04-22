@@ -40,6 +40,21 @@ import com.anodyne.iloadobd2.data.TelemetryMode
 import com.anodyne.iloadobd2.data.dtcDescriptions
 import com.anodyne.iloadobd2.model.MapData
 import com.anodyne.iloadobd2.viewmodel.DashboardViewModel
+import kotlinx.coroutines.delay
+
+data class BleDeviceOption(
+    val name: String,
+    val address: String,
+    val rssi: Int? = null,
+    val lastSeenMillis: Long? = null,
+)
+
+data class BleDiagnostics(
+    val hasRequiredPermissions: Boolean,
+    val adapterAvailable: Boolean,
+    val adapterEnabled: Boolean,
+    val selectedAddress: String?,
+)
 
 private enum class AppTab(val label: String) {
     DASHBOARD("Dashboard"),
@@ -55,7 +70,17 @@ fun AppScreen(
     currentHost: String,
     currentPort: Int,
     currentMode: TelemetryMode,
-    onApplySettings: (String, Int, TelemetryMode) -> Unit,
+    currentBleDeviceAddress: String?,
+    bondedBleDevices: List<BleDeviceOption>,
+    discoveredBleDevices: List<BleDeviceOption>,
+    isBleScanInProgress: Boolean,
+    bleScanStartedAtMillis: Long?,
+    bleDiagnostics: BleDiagnostics,
+    settingsNotice: String?,
+    onRefreshBleDevices: () -> Unit,
+    onStartBleScan: () -> Unit,
+    onStopBleScan: () -> Unit,
+    onApplySettings: (String, Int, TelemetryMode, String?) -> Unit,
 ) {
     var selectedTab by rememberSaveable { mutableStateOf(AppTab.DASHBOARD.ordinal) }
 
@@ -79,6 +104,16 @@ fun AppScreen(
                 currentHost = currentHost,
                 currentPort = currentPort,
                 currentMode = currentMode,
+                currentBleDeviceAddress = currentBleDeviceAddress,
+                bondedBleDevices = bondedBleDevices,
+                discoveredBleDevices = discoveredBleDevices,
+                isBleScanInProgress = isBleScanInProgress,
+                bleScanStartedAtMillis = bleScanStartedAtMillis,
+                bleDiagnostics = bleDiagnostics,
+                settingsNotice = settingsNotice,
+                onRefreshBleDevices = onRefreshBleDevices,
+                onStartBleScan = onStartBleScan,
+                onStopBleScan = onStopBleScan,
                 onApplySettings = onApplySettings,
             )
         }
@@ -251,17 +286,47 @@ private fun SettingsScreen(
     currentHost: String,
     currentPort: Int,
     currentMode: TelemetryMode,
-    onApplySettings: (String, Int, TelemetryMode) -> Unit,
+    currentBleDeviceAddress: String?,
+    bondedBleDevices: List<BleDeviceOption>,
+    discoveredBleDevices: List<BleDeviceOption>,
+    isBleScanInProgress: Boolean,
+    bleScanStartedAtMillis: Long?,
+    bleDiagnostics: BleDiagnostics,
+    settingsNotice: String?,
+    onRefreshBleDevices: () -> Unit,
+    onStartBleScan: () -> Unit,
+    onStopBleScan: () -> Unit,
+    onApplySettings: (String, Int, TelemetryMode, String?) -> Unit,
 ) {
     var hostText by rememberSaveable { mutableStateOf(currentHost) }
     var portText by rememberSaveable { mutableStateOf(currentPort.toString()) }
     var mode by rememberSaveable { mutableStateOf(currentMode) }
+    var bleDeviceAddressText by rememberSaveable { mutableStateOf(currentBleDeviceAddress ?: "") }
     var modeMenuExpanded by remember { mutableStateOf(false) }
+    var bleDeviceMenuExpanded by remember { mutableStateOf(false) }
+    var scanElapsedSeconds by remember { mutableStateOf(0L) }
 
-    LaunchedEffect(currentHost, currentPort, currentMode) {
+    val normalizedBleAddress = normalizeBleAddress(bleDeviceAddressText)
+    val isBleAddressValid = normalizedBleAddress.isBlank() || isValidBleAddress(normalizedBleAddress)
+
+    LaunchedEffect(currentHost, currentPort, currentMode, currentBleDeviceAddress) {
         hostText = currentHost
         portText = currentPort.toString()
         mode = currentMode
+        bleDeviceAddressText = currentBleDeviceAddress ?: ""
+    }
+
+    LaunchedEffect(isBleScanInProgress, bleScanStartedAtMillis) {
+        if (!isBleScanInProgress || bleScanStartedAtMillis == null) {
+            scanElapsedSeconds = 0L
+            return@LaunchedEffect
+        }
+
+        while (isBleScanInProgress) {
+            val elapsedMillis = System.currentTimeMillis() - bleScanStartedAtMillis
+            scanElapsedSeconds = (elapsedMillis / 1000L).coerceAtLeast(0L)
+            delay(1000L)
+        }
     }
 
     Column(
@@ -319,17 +384,160 @@ private fun SettingsScreen(
             }
         }
 
+        if (mode == TelemetryMode.BLE_DIRECT) {
+            val allBleDevices = (bondedBleDevices + discoveredBleDevices)
+                .distinctBy { it.address }
+                .sortedWith(
+                    compareByDescending<BleDeviceOption> { it.rssi ?: Int.MIN_VALUE }
+                        .thenByDescending { it.lastSeenMillis ?: Long.MIN_VALUE }
+                        .thenBy { it.name.lowercase() },
+                )
+
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Text("BLE Diagnostics", style = MaterialTheme.typography.titleMedium)
+                    Text("Permissions: ${if (bleDiagnostics.hasRequiredPermissions) "granted" else "missing"}", style = MaterialTheme.typography.bodySmall)
+                    Text("Adapter: ${if (bleDiagnostics.adapterAvailable) "available" else "unavailable"}", style = MaterialTheme.typography.bodySmall)
+                    Text("Bluetooth: ${if (bleDiagnostics.adapterEnabled) "enabled" else "disabled"}", style = MaterialTheme.typography.bodySmall)
+                    Text(
+                        "Selected: ${bleDiagnostics.selectedAddress ?: "none"}",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+            }
+
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = onRefreshBleDevices) {
+                    Text("Refresh Paired Devices")
+                }
+
+                Button(onClick = onStartBleScan) {
+                    Text(if (isBleScanInProgress) "Scanning..." else "Scan Nearby")
+                }
+
+                if (isBleScanInProgress) {
+                    Button(onClick = onStopBleScan) {
+                        Text("Stop Scan")
+                    }
+                }
+            }
+
+            if (isBleScanInProgress) {
+                Text(
+                    text = "Scan in progress: ${scanElapsedSeconds}s",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+
+            ExposedDropdownMenuBox(
+                expanded = bleDeviceMenuExpanded,
+                onExpandedChange = { bleDeviceMenuExpanded = !bleDeviceMenuExpanded },
+            ) {
+                OutlinedTextField(
+                    value = bleDeviceAddressText,
+                    onValueChange = { bleDeviceAddressText = it },
+                    label = { Text("BLE Device Address") },
+                    placeholder = { Text("AA:BB:CC:DD:EE:FF") },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = bleDeviceMenuExpanded) },
+                    modifier = Modifier
+                        .menuAnchor()
+                        .fillMaxWidth(),
+                    singleLine = true,
+                )
+
+                ExposedDropdownMenu(
+                    expanded = bleDeviceMenuExpanded,
+                    onDismissRequest = { bleDeviceMenuExpanded = false },
+                ) {
+                    allBleDevices.forEach { option ->
+                        val signalBadge = option.rssi?.let { "[${rssiQualityLabel(it)}] " } ?: ""
+                        val signalSuffix = option.rssi?.let { " | ${it} dBm" } ?: ""
+                        val freshnessSuffix = option.lastSeenMillis?.let { " | seen ${relativeSeenLabel(it)}" } ?: ""
+                        DropdownMenuItem(
+                            text = { Text("$signalBadge${option.name} (${option.address})$signalSuffix$freshnessSuffix") },
+                            onClick = {
+                                bleDeviceAddressText = option.address
+                                bleDeviceMenuExpanded = false
+                            },
+                        )
+                    }
+                }
+            }
+
+            Text(
+                text = "Paired devices found: ${bondedBleDevices.size}",
+                style = MaterialTheme.typography.bodySmall,
+            )
+            Text(
+                text = "Discovered devices found: ${discoveredBleDevices.size}",
+                style = MaterialTheme.typography.bodySmall,
+            )
+
+            if (!isBleAddressValid) {
+                Text(
+                    text = "Invalid BLE address format. Use AA:BB:CC:DD:EE:FF",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
+        }
+
+        if (!settingsNotice.isNullOrBlank()) {
+            Text(
+                text = settingsNotice,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+            )
+        }
+
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(
+                enabled = mode != TelemetryMode.BLE_DIRECT || isBleAddressValid,
                 onClick = {
                     val parsedPort = portText.toIntOrNull() ?: currentPort
-                    onApplySettings(hostText.ifBlank { currentHost }, parsedPort, mode)
+                    onApplySettings(
+                        hostText.ifBlank { currentHost },
+                        parsedPort,
+                        mode,
+                        normalizedBleAddress.ifBlank { null },
+                    )
                 },
             ) {
                 Text("Apply and Reconnect")
             }
         }
     }
+}
+
+private fun normalizeBleAddress(value: String): String {
+    return value
+        .trim()
+        .replace('-', ':')
+        .uppercase()
+}
+
+private fun isValidBleAddress(value: String): Boolean {
+    val pattern = Regex("^([0-9A-F]{2}:){5}[0-9A-F]{2}$")
+    return pattern.matches(value)
+}
+
+private fun rssiQualityLabel(rssi: Int): String {
+    return when {
+        rssi >= -60 -> "Excellent"
+        rssi >= -70 -> "Good"
+        rssi >= -80 -> "Fair"
+        else -> "Weak"
+    }
+}
+
+private fun relativeSeenLabel(lastSeenMillis: Long): String {
+    val deltaSeconds = ((System.currentTimeMillis() - lastSeenMillis) / 1000L).coerceAtLeast(0L)
+    return "${deltaSeconds}s ago"
 }
 
 @Composable

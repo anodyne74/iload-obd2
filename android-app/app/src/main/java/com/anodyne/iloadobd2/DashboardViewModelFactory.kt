@@ -1,5 +1,6 @@
 package com.anodyne.iloadobd2
 
+import android.content.Context
 import com.anodyne.iloadobd2.data.WebSocketTelemetryRepository
 import com.anodyne.iloadobd2.data.BleTelemetryRepository
 import com.anodyne.iloadobd2.data.TelemetryMode
@@ -12,6 +13,7 @@ object DashboardViewModelFactory {
         val host: String,
         val port: Int,
         val mode: TelemetryMode,
+        val bleDeviceAddress: String?,
     )
 
     private val client: OkHttpClient by lazy {
@@ -25,11 +27,18 @@ object DashboardViewModelFactory {
     private var currentConfig: ConnectionConfig? = null
 
     fun create(
+        context: Context,
         host: String = "192.168.1.100",
         port: Int = 8080,
         mode: TelemetryMode = TelemetryMode.WEBSOCKET,
+        bleDeviceAddress: String? = null,
     ): DashboardViewModel {
-        val requested = ConnectionConfig(host = host, port = port, mode = mode)
+        val requested = ConnectionConfig(
+            host = host,
+            port = port,
+            mode = mode,
+            bleDeviceAddress = bleDeviceAddress,
+        )
         if (current == null || currentConfig != requested) {
             current?.clear()
 
@@ -40,7 +49,10 @@ object DashboardViewModelFactory {
                     client = client,
                 )
 
-                TelemetryMode.BLE_DIRECT -> BleTelemetryRepository()
+                TelemetryMode.BLE_DIRECT -> BleTelemetryRepository(
+                    context = context.applicationContext,
+                    preferredDeviceAddress = bleDeviceAddress,
+                )
             }
 
             current = DashboardViewModel(repository = repository)
