@@ -6,6 +6,7 @@ import kotlinx.serialization.Serializable
 data class CaptureCommand(
     val command: String,
     val label: String? = null,
+    val metadata: Map<String, String>? = null,
 )
 
 @Serializable

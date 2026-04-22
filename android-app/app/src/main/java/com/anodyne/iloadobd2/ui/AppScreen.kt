@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -101,6 +102,7 @@ fun AppScreen(
             AppTab.MAPS -> EngineMapsScreen(viewModel = viewModel)
             AppTab.DTC -> DtcScreen(viewModel = viewModel)
             AppTab.SETTINGS -> SettingsScreen(
+                viewModel = viewModel,
                 currentHost = currentHost,
                 currentPort = currentPort,
                 currentMode = currentMode,
@@ -283,6 +285,7 @@ private fun DtcScreen(viewModel: DashboardViewModel) {
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
 private fun SettingsScreen(
+    viewModel: DashboardViewModel,
     currentHost: String,
     currentPort: Int,
     currentMode: TelemetryMode,
@@ -298,13 +301,26 @@ private fun SettingsScreen(
     onStopBleScan: () -> Unit,
     onApplySettings: (String, Int, TelemetryMode, String?) -> Unit,
 ) {
+    val profiles by viewModel.profiles.collectAsState()
+    val profileSyncStatus by viewModel.profileSyncStatus.collectAsState()
+    val profileSyncDiagnostics by viewModel.profileSyncDiagnostics.collectAsState()
+
     var hostText by rememberSaveable { mutableStateOf(currentHost) }
     var portText by rememberSaveable { mutableStateOf(currentPort.toString()) }
     var mode by rememberSaveable { mutableStateOf(currentMode) }
     var bleDeviceAddressText by rememberSaveable { mutableStateOf(currentBleDeviceAddress ?: "") }
     var modeMenuExpanded by remember { mutableStateOf(false) }
     var bleDeviceMenuExpanded by remember { mutableStateOf(false) }
+    var profileMenuExpanded by remember { mutableStateOf(false) }
     var scanElapsedSeconds by remember { mutableStateOf(0L) }
+
+    var selectedProfileId by rememberSaveable { mutableStateOf<String?>(null) }
+    var profileDisplayName by rememberSaveable { mutableStateOf("") }
+    var profileNotes by rememberSaveable { mutableStateOf("") }
+    var profileTags by rememberSaveable { mutableStateOf("") }
+    var profileMake by rememberSaveable { mutableStateOf("") }
+    var profileModel by rememberSaveable { mutableStateOf("") }
+    var profileYear by rememberSaveable { mutableStateOf("") }
 
     val normalizedBleAddress = normalizeBleAddress(bleDeviceAddressText)
     val isBleAddressValid = normalizedBleAddress.isBlank() || isValidBleAddress(normalizedBleAddress)
@@ -314,6 +330,28 @@ private fun SettingsScreen(
         portText = currentPort.toString()
         mode = currentMode
         bleDeviceAddressText = currentBleDeviceAddress ?: ""
+    }
+
+    LaunchedEffect(profiles, selectedProfileId) {
+        if (profiles.isEmpty()) {
+            selectedProfileId = null
+            profileDisplayName = ""
+            profileNotes = ""
+            profileTags = ""
+            profileMake = ""
+            profileModel = ""
+            profileYear = ""
+            return@LaunchedEffect
+        }
+
+        val selected = profiles.firstOrNull { it.id == selectedProfileId } ?: profiles.first()
+        selectedProfileId = selected.id
+        profileDisplayName = selected.displayName.orEmpty()
+        profileNotes = selected.notes.orEmpty()
+        profileTags = selected.tags.joinToString(",")
+        profileMake = selected.make.orEmpty()
+        profileModel = selected.model.orEmpty()
+        profileYear = selected.year?.toString().orEmpty()
     }
 
     LaunchedEffect(isBleScanInProgress, bleScanStartedAtMillis) {
@@ -495,6 +533,193 @@ private fun SettingsScreen(
             )
         }
 
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Text("Profile Sync Diagnostics", style = MaterialTheme.typography.titleMedium)
+                Text("Total profiles: ${profileSyncDiagnostics.totalProfiles}", style = MaterialTheme.typography.bodySmall)
+                Text(
+                    "Pending sync: ${profileSyncDiagnostics.pendingCount}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (profileSyncDiagnostics.pendingCount > 0) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.onSurface
+                    },
+                )
+                Text(
+                    "Failed sync: ${profileSyncDiagnostics.failedCount}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (profileSyncDiagnostics.failedCount > 0) {
+                        MaterialTheme.colorScheme.error
+                    } else {
+                        MaterialTheme.colorScheme.onSurface
+                    },
+                )
+                Text(
+                    "Synced: ${profileSyncDiagnostics.syncedCount}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (profileSyncDiagnostics.syncedCount > 0) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.onSurface
+                    },
+                )
+                Text(
+                    text = "Last successful sync: ${formatSyncTime(profileSyncDiagnostics.lastSuccessfulSyncAtMillis)}",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(onClick = { viewModel.syncProfilesNow() }) {
+                        Text("Sync Profiles Now")
+                    }
+
+                    Button(
+                        enabled = profileSyncDiagnostics.failedCount > 0,
+                        onClick = { viewModel.retryFailedProfilesNow() },
+                    ) {
+                        Text("Retry Failed Only")
+                    }
+                }
+
+                if (!profileSyncStatus.isNullOrBlank()) {
+                    Text(
+                        text = profileSyncStatus.orEmpty(),
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+            }
+        }
+
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text("Vehicle Profiles", style = MaterialTheme.typography.titleMedium)
+
+                if (profiles.isEmpty()) {
+                    Text(
+                        "No profiles yet. Connect to a vehicle with VIN data to auto-create one.",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                } else {
+                    val selectedProfile = profiles.firstOrNull { it.id == selectedProfileId } ?: profiles.first()
+
+                    ExposedDropdownMenuBox(
+                        expanded = profileMenuExpanded,
+                        onExpandedChange = { profileMenuExpanded = !profileMenuExpanded },
+                    ) {
+                        OutlinedTextField(
+                            value = "${selectedProfile.displayName ?: selectedProfile.vin} (${selectedProfile.syncState.name})",
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("Active Profile") },
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = profileMenuExpanded) },
+                            modifier = Modifier
+                                .menuAnchor()
+                                .fillMaxWidth(),
+                            singleLine = true,
+                        )
+
+                        ExposedDropdownMenu(
+                            expanded = profileMenuExpanded,
+                            onDismissRequest = { profileMenuExpanded = false },
+                        ) {
+                            profiles.forEach { profile ->
+                                DropdownMenuItem(
+                                    text = {
+                                        Text("${profile.displayName ?: profile.vin} (${profile.syncState.name})")
+                                    },
+                                    onClick = {
+                                        selectedProfileId = profile.id
+                                        profileMenuExpanded = false
+                                    },
+                                )
+                            }
+                        }
+                    }
+
+                    OutlinedTextField(
+                        value = profileDisplayName,
+                        onValueChange = { profileDisplayName = it },
+                        label = { Text("Display Name") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                    )
+
+                    OutlinedTextField(
+                        value = profileNotes,
+                        onValueChange = { profileNotes = it },
+                        label = { Text("Notes") },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+
+                    OutlinedTextField(
+                        value = profileTags,
+                        onValueChange = { profileTags = it },
+                        label = { Text("Tags (comma-separated)") },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedTextField(
+                            value = profileMake,
+                            onValueChange = { profileMake = it },
+                            label = { Text("Make") },
+                            modifier = Modifier.weight(1f),
+                            singleLine = true,
+                        )
+
+                        OutlinedTextField(
+                            value = profileModel,
+                            onValueChange = { profileModel = it },
+                            label = { Text("Model") },
+                            modifier = Modifier.weight(1f),
+                            singleLine = true,
+                        )
+                    }
+
+                    OutlinedTextField(
+                        value = profileYear,
+                        onValueChange = { profileYear = it.filter { c -> c.isDigit() } },
+                        label = { Text("Year") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                    )
+
+                    Button(
+                        onClick = {
+                            val tags = profileTags.split(',')
+                                .map { it.trim() }
+                                .filter { it.isNotBlank() }
+                            val year = profileYear.toIntOrNull()
+
+                            viewModel.updateVehicleProfile(
+                                profileId = selectedProfile.id,
+                                displayName = profileDisplayName.ifBlank { null },
+                                notes = profileNotes.ifBlank { null },
+                                tags = tags,
+                                make = profileMake.ifBlank { null },
+                                model = profileModel.ifBlank { null },
+                                year = year,
+                            )
+                        },
+                    ) {
+                        Text("Save Profile")
+                    }
+
+                }
+            }
+        }
+
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(
                 enabled = mode != TelemetryMode.BLE_DIRECT || isBleAddressValid,
@@ -537,6 +762,15 @@ private fun rssiQualityLabel(rssi: Int): String {
 
 private fun relativeSeenLabel(lastSeenMillis: Long): String {
     val deltaSeconds = ((System.currentTimeMillis() - lastSeenMillis) / 1000L).coerceAtLeast(0L)
+    return "${deltaSeconds}s ago"
+}
+
+private fun formatSyncTime(timestampMillis: Long?): String {
+    if (timestampMillis == null) {
+        return "never"
+    }
+
+    val deltaSeconds = ((System.currentTimeMillis() - timestampMillis) / 1000L).coerceAtLeast(0L)
     return "${deltaSeconds}s ago"
 }
 

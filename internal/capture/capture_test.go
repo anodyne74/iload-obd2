@@ -105,3 +105,53 @@ func TestRecorder(t *testing.T) {
 		t.Error("Expected recorder to be stopped")
 	}
 }
+
+func TestRecorderMetadataRoundTrip(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "capture_metadata_test")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	recorder := NewRecorder("Test Vehicle")
+	recorder.session.filePath = filepath.Join(tempDir, "metadata_session.json")
+
+	recorder.SetMetadata("vin", "KMH12345678901234")
+	recorder.SetMetadata("profile_id", "profile-123")
+	recorder.SetMetadata("profile_version", "4")
+	recorder.SetMetadata("profile_sync_state", "pending_update")
+
+	if err := recorder.Start(); err != nil {
+		t.Fatalf("Failed to start recorder: %v", err)
+	}
+
+	if err := recorder.Record(Frame{
+		Timestamp: time.Now(),
+		Type:      "OBD2",
+		Data:      []byte{0x01, 0x02},
+	}); err != nil {
+		t.Fatalf("Failed to record frame: %v", err)
+	}
+
+	if err := recorder.Stop(); err != nil {
+		t.Fatalf("Failed to stop recorder: %v", err)
+	}
+
+	loaded, err := LoadSession(recorder.session.filePath)
+	if err != nil {
+		t.Fatalf("Failed to load saved session: %v", err)
+	}
+
+	if got := loaded.Metadata["vin"]; got != "KMH12345678901234" {
+		t.Fatalf("unexpected vin metadata: %q", got)
+	}
+	if got := loaded.Metadata["profile_id"]; got != "profile-123" {
+		t.Fatalf("unexpected profile_id metadata: %q", got)
+	}
+	if got := loaded.Metadata["profile_version"]; got != "4" {
+		t.Fatalf("unexpected profile_version metadata: %q", got)
+	}
+	if got := loaded.Metadata["profile_sync_state"]; got != "pending_update" {
+		t.Fatalf("unexpected profile_sync_state metadata: %q", got)
+	}
+}

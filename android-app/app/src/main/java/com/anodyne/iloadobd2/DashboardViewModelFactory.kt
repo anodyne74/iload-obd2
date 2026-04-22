@@ -3,7 +3,9 @@ package com.anodyne.iloadobd2
 import android.content.Context
 import com.anodyne.iloadobd2.data.WebSocketTelemetryRepository
 import com.anodyne.iloadobd2.data.BleTelemetryRepository
+import com.anodyne.iloadobd2.data.HttpProfileSyncService
 import com.anodyne.iloadobd2.data.TelemetryMode
+import com.anodyne.iloadobd2.data.VehicleProfileRepository
 import com.anodyne.iloadobd2.viewmodel.DashboardViewModel
 import okhttp3.OkHttpClient
 import java.util.concurrent.TimeUnit
@@ -55,7 +57,14 @@ object DashboardViewModelFactory {
                 )
             }
 
-            current = DashboardViewModel(repository = repository)
+            current = DashboardViewModel(
+                repository = repository,
+                vehicleProfiles = VehicleProfileRepository(context = context.applicationContext),
+                profileSync = HttpProfileSyncService(
+                    baseUrl = "http://$host:$port",
+                    client = client,
+                ),
+            )
             currentConfig = requested
         }
 

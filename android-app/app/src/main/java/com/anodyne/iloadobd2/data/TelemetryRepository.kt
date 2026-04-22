@@ -9,7 +9,7 @@ interface TelemetryRepository {
 
     suspend fun connect()
     suspend fun disconnect()
-    suspend fun startCapture(label: String? = null)
+    suspend fun startCapture(label: String? = null, metadata: Map<String, String>? = null)
     suspend fun stopCapture()
     suspend fun requestCaptureStatus()
 }

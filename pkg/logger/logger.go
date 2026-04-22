@@ -79,6 +79,9 @@ func Init(version, logPath string, debugMode bool) error {
 
 // Get returns a named logger instance
 func Get(name string) *Logger {
+	if sugar == nil {
+		sugar = zap.NewNop().Sugar()
+	}
 	return &Logger{SugaredLogger: sugar.Named(name)}
 }
 

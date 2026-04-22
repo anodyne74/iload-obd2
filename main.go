@@ -75,8 +75,9 @@ type CaptureState struct {
 }
 
 type CaptureCommand struct {
-	Command string `json:"command"`
-	Label   string `json:"label,omitempty"`
+	Command  string            `json:"command"`
+	Label    string            `json:"label,omitempty"`
+	Metadata map[string]string `json:"metadata,omitempty"`
 }
 
 type CaptureControlResponse struct {
@@ -87,6 +88,27 @@ type CaptureControlResponse struct {
 	FilePath        string `json:"filePath,omitempty"`
 	FrameCount      int    `json:"frameCount,omitempty"`
 	DurationSeconds int64  `json:"durationSeconds,omitempty"`
+}
+
+type ProfileUpsertRequest struct {
+	Profile json.RawMessage `json:"profile"`
+}
+
+type ProfileUpsertResponse struct {
+	CloudVersion string `json:"cloudVersion,omitempty"`
+}
+
+type StoredProfileView struct {
+	ID           string          `json:"id"`
+	CloudVersion string          `json:"cloudVersion"`
+	UpdatedAt    time.Time       `json:"updatedAt"`
+	Profile      json.RawMessage `json:"profile"`
+}
+
+type storedProfile struct {
+	Profile      json.RawMessage
+	CloudVersion int64
+	UpdatedAt    time.Time
 }
 
 // CANFrame represents a CAN bus frame
@@ -117,7 +139,81 @@ var (
 	recorder   *capture.Recorder
 	recorderMu sync.Mutex
 	recordedAt time.Time
+
+	profileStore   = make(map[string]storedProfile)
+	profileStoreMu sync.Mutex
 )
+
+func extractProfileID(raw json.RawMessage) string {
+	var envelope struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(raw, &envelope); err != nil {
+		return ""
+	}
+	return strings.TrimSpace(envelope.ID)
+}
+
+func profileUpsertHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+
+	defer r.Body.Close()
+
+	var req ProfileUpsertRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid JSON payload", http.StatusBadRequest)
+		return
+	}
+
+	profileID := extractProfileID(req.Profile)
+	if profileID == "" {
+		http.Error(w, "profile.id is required", http.StatusBadRequest)
+		return
+	}
+
+	profileStoreMu.Lock()
+	stored := profileStore[profileID]
+	stored.CloudVersion++
+	stored.Profile = req.Profile
+	stored.UpdatedAt = time.Now()
+	profileStore[profileID] = stored
+	profileStoreMu.Unlock()
+
+	resp := ProfileUpsertResponse{CloudVersion: fmt.Sprintf("%d", stored.CloudVersion)}
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		http.Error(w, "failed to write response", http.StatusInternalServerError)
+		return
+	}
+}
+
+func profileListHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+
+	profileStoreMu.Lock()
+	views := make([]StoredProfileView, 0, len(profileStore))
+	for id, stored := range profileStore {
+		views = append(views, StoredProfileView{
+			ID:           id,
+			CloudVersion: fmt.Sprintf("%d", stored.CloudVersion),
+			UpdatedAt:    stored.UpdatedAt,
+			Profile:      stored.Profile,
+		})
+	}
+	profileStoreMu.Unlock()
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(views); err != nil {
+		http.Error(w, "failed to write response", http.StatusInternalServerError)
+		return
+	}
+}
 
 func currentCaptureState() *CaptureState {
 	recorderMu.Lock()
@@ -167,6 +263,14 @@ func handleCaptureCommand(ws *websocket.Conn, cmd CaptureCommand) {
 		newRecorder.SetMetadata("transport", "ble")
 		if cmd.Label != "" {
 			newRecorder.SetMetadata("label", cmd.Label)
+		}
+		for key, value := range cmd.Metadata {
+			k := strings.TrimSpace(key)
+			v := strings.TrimSpace(value)
+			if k == "" || v == "" {
+				continue
+			}
+			newRecorder.SetMetadata(k, v)
 		}
 
 		if err := newRecorder.Start(); err != nil {
@@ -311,15 +415,6 @@ func broadcastTelemetry(data TelemetryData) {
 			delete(clients, client)
 		}
 	}
-}
-
-var (
-	configFile string
-)
-
-func init() {
-	flag.StringVar(&configFile, "config", "config.yaml", "Path to configuration file")
-	flag.Parse()
 }
 
 // sendInfoRequest sends an OBD-II request for vehicle information
@@ -568,10 +663,12 @@ func main() {
 	// Initialize HTTP server
 	router := mux.NewRouter()
 	router.HandleFunc("/ws", wsHandler)
+	router.HandleFunc("/api/v1/vehicle-profiles/upsert", profileUpsertHandler)
+	router.HandleFunc("/api/v1/vehicle-profiles", profileListHandler)
 	router.PathPrefix("/").Handler(http.FileServer(http.Dir("static")))
 
 	// Load configuration
-	cfg, err := config.LoadConfig(configFile)
+	cfg, err := config.LoadConfig(*configPath)
 	if err != nil {
 		log.Fatalf("Error loading config: %v", err)
 	}

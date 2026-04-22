@@ -1,0 +1,13 @@
+{
+  "start_time": "2026-04-23T05:23:08.525049139+10:00",
+  "end_time": "2026-04-23T05:23:08.525059987+10:00",
+  "vehicle_info": "Test Vehicle",
+  "frames": [
+    {
+      "timestamp": "2026-04-23T05:23:08.525049681+10:00",
+      "type": "TEST",
+      "data": "AQID",
+      "decoded": null
+    }
+  ]
+}

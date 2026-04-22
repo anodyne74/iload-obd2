@@ -66,8 +66,8 @@ class WebSocketTelemetryRepository(
         webSocket = null
     }
 
-    override suspend fun startCapture(label: String?) {
-        sendCaptureCommand(CaptureCommand(command = "start", label = label))
+    override suspend fun startCapture(label: String?, metadata: Map<String, String>?) {
+        sendCaptureCommand(CaptureCommand(command = "start", label = label, metadata = metadata))
     }
 
     override suspend fun stopCapture() {
