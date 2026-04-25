@@ -233,8 +233,9 @@ class VehicleProfileRepository(
     }
 
     private suspend fun writeCatalog(catalog: VehicleProfileCatalog) = withContext(Dispatchers.IO) {
-        if (!catalogFile.parentFile.exists()) {
-            catalogFile.parentFile?.mkdirs()
+        val parentDir = catalogFile.parentFile
+        if (parentDir != null && !parentDir.exists()) {
+            parentDir.mkdirs()
         }
         catalogFile.writeText(json.encodeToString(VehicleProfileCatalog.serializer(), catalog))
     }

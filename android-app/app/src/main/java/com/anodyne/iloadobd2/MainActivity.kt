@@ -1,8 +1,10 @@
 package com.anodyne.iloadobd2
 
+import android.annotation.SuppressLint
 import android.Manifest
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothAdapter
+import android.bluetooth.BluetoothManager
 import android.content.BroadcastReceiver
 import android.content.Intent
 import android.content.IntentFilter
@@ -23,6 +25,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.core.content.edit
 import androidx.core.content.ContextCompat
 import com.anodyne.iloadobd2.data.TelemetryMode
 import com.anodyne.iloadobd2.ui.AppScreen
@@ -85,7 +88,7 @@ class MainActivity : ComponentActivity() {
                                 if (device != null && hasBlePermissions()) {
                                     val rssi = extractRssi(intent)
                                     val option = BleDeviceOption(
-                                        name = device.name ?: "Unknown Device",
+                                        name = bluetoothDeviceName(device),
                                         address = device.address,
                                         rssi = rssi,
                                         lastSeenMillis = System.currentTimeMillis(),
@@ -119,7 +122,7 @@ class MainActivity : ComponentActivity() {
 
                 onDispose {
                     runCatching { unregisterReceiver(receiver) }
-                    BluetoothAdapter.getDefaultAdapter()?.cancelDiscovery()
+                    cancelBluetoothDiscovery()
                 }
             }
 
@@ -148,7 +151,7 @@ class MainActivity : ComponentActivity() {
                     return
                 }
 
-                val adapter = BluetoothAdapter.getDefaultAdapter()
+                val adapter = bluetoothAdapter()
                 if (adapter == null) {
                     settingsNotice = "Bluetooth adapter is unavailable on this device."
                     return
@@ -161,8 +164,7 @@ class MainActivity : ComponentActivity() {
 
                 settingsNotice = null
                 discoveredBleDevices = emptyList()
-                adapter.cancelDiscovery()
-                isBleScanInProgress = adapter.startDiscovery()
+                isBleScanInProgress = restartBluetoothDiscovery(adapter)
                 if (!isBleScanInProgress) {
                     settingsNotice = "Unable to start Bluetooth scan."
                     bleScanStartedAtMillis = null
@@ -172,8 +174,7 @@ class MainActivity : ComponentActivity() {
             }
 
             fun stopBleScan() {
-                val adapter = BluetoothAdapter.getDefaultAdapter()
-                adapter?.cancelDiscovery()
+                cancelBluetoothDiscovery()
                 isBleScanInProgress = false
                 bleScanStartedAtMillis = null
                 settingsNotice = "Bluetooth scan stopped."
@@ -185,12 +186,12 @@ class MainActivity : ComponentActivity() {
                 mode = nextMode
                 bleDeviceAddress = nextBleDeviceAddress
                 settingsNotice = null
-                prefs.edit()
-                    .putString("host", host)
-                    .putInt("port", port)
-                    .putString("mode", mode.name)
-                    .putString("ble_device_address", bleDeviceAddress)
-                    .apply()
+                prefs.edit {
+                    putString("host", host)
+                    putInt("port", port)
+                    putString("mode", mode.name)
+                    putString("ble_device_address", bleDeviceAddress)
+                }
                 viewModel = DashboardViewModelFactory.create(
                     context = applicationContext,
                     host = host,
@@ -294,11 +295,11 @@ class MainActivity : ComponentActivity() {
             return emptyList()
         }
 
-        val adapter = BluetoothAdapter.getDefaultAdapter() ?: return emptyList()
-        return adapter.bondedDevices
+        val adapter = bluetoothAdapter() ?: return emptyList()
+        return bondedDevices(adapter)
             .map { device ->
                 BleDeviceOption(
-                    name = device.name ?: "Unknown Device",
+                    name = bluetoothDeviceName(device),
                     address = device.address,
                     rssi = null,
                     lastSeenMillis = null,
@@ -308,13 +309,38 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun readBleDiagnostics(selectedAddress: String?): BleDiagnostics {
-        val adapter = BluetoothAdapter.getDefaultAdapter()
+        val adapter = bluetoothAdapter()
         return BleDiagnostics(
             hasRequiredPermissions = hasBlePermissions(),
             adapterAvailable = adapter != null,
             adapterEnabled = adapter?.isEnabled == true,
             selectedAddress = selectedAddress,
         )
+    }
+
+    private fun bluetoothAdapter(): BluetoothAdapter? {
+        return getSystemService(BluetoothManager::class.java)?.adapter
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun cancelBluetoothDiscovery() {
+        bluetoothAdapter()?.cancelDiscovery()
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun restartBluetoothDiscovery(adapter: BluetoothAdapter): Boolean {
+        adapter.cancelDiscovery()
+        return adapter.startDiscovery()
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun bondedDevices(adapter: BluetoothAdapter): Set<BluetoothDevice> {
+        return adapter.bondedDevices
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun bluetoothDeviceName(device: BluetoothDevice): String {
+        return device.name ?: "Unknown Device"
     }
 
     @Suppress("DEPRECATION")

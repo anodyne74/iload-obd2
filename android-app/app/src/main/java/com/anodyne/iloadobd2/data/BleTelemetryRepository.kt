@@ -1,8 +1,10 @@
 package com.anodyne.iloadobd2.data
 
+import android.annotation.SuppressLint
 import android.Manifest
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
+import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothSocket
 import android.content.Context
 import android.content.pm.PackageManager
@@ -59,7 +61,7 @@ class BleTelemetryRepository(
             return
         }
 
-        val adapter = BluetoothAdapter.getDefaultAdapter()
+        val adapter = bluetoothAdapter()
         if (adapter == null) {
             emitError("Bluetooth is not available on this device")
             return
@@ -70,14 +72,14 @@ class BleTelemetryRepository(
             return
         }
 
-        val device = selectCandidateDevice(adapter.bondedDevices)
+        val device = selectCandidateDevice(bondedDevices(adapter))
         if (device == null) {
             emitError("No bonded OBD/BLE adapter found")
             return
         }
 
         runCatching {
-            adapter.cancelDiscovery()
+            cancelDiscovery(adapter)
             val nextSocket = device.createRfcommSocketToServiceRecord(sppUuid)
             nextSocket.connect()
 
@@ -88,7 +90,7 @@ class BleTelemetryRepository(
                 CaptureControlResponse(
                     type = "capture_control",
                     status = "connected",
-                    message = "Connected to ${device.name ?: device.address}",
+                    message = "Connected to ${bluetoothDeviceLabel(device)}",
                 ),
             )
 
@@ -126,6 +128,25 @@ class BleTelemetryRepository(
         ) == PackageManager.PERMISSION_GRANTED
     }
 
+    private fun bluetoothAdapter(): BluetoothAdapter? {
+        return context.getSystemService(BluetoothManager::class.java)?.adapter
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun bondedDevices(adapter: BluetoothAdapter): Set<BluetoothDevice> {
+        return adapter.bondedDevices
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun cancelDiscovery(adapter: BluetoothAdapter) {
+        adapter.cancelDiscovery()
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun bluetoothDeviceLabel(device: BluetoothDevice): String {
+        return device.name ?: device.address
+    }
+
     private fun selectCandidateDevice(devices: Set<BluetoothDevice>): BluetoothDevice? {
         if (devices.isEmpty()) {
             return null
@@ -139,9 +160,14 @@ class BleTelemetryRepository(
         }
 
         return devices.firstOrNull { device ->
-            val name = (device.name ?: "").lowercase()
+            val name = bluetoothDeviceName(device).lowercase()
             deviceNameHints.any { hint -> name.contains(hint) }
         } ?: devices.firstOrNull()
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun bluetoothDeviceName(device: BluetoothDevice): String {
+        return device.name ?: ""
     }
 
     private fun startReader(activeSocket: BluetoothSocket) {

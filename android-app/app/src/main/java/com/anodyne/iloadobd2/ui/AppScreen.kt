@@ -1,6 +1,8 @@
 package com.anodyne.iloadobd2.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,8 +12,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
@@ -19,16 +22,19 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.ScrollableTabRow
+import androidx.compose.material3.PrimaryScrollableTabRow
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -83,10 +89,10 @@ fun AppScreen(
     onStopBleScan: () -> Unit,
     onApplySettings: (String, Int, TelemetryMode, String?) -> Unit,
 ) {
-    var selectedTab by rememberSaveable { mutableStateOf(AppTab.DASHBOARD.ordinal) }
+    var selectedTab by rememberSaveable { mutableIntStateOf(AppTab.DASHBOARD.ordinal) }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        ScrollableTabRow(selectedTabIndex = selectedTab) {
+        PrimaryScrollableTabRow(selectedTabIndex = selectedTab) {
             AppTab.entries.forEachIndexed { index, tab ->
                 Tab(
                     selected = selectedTab == index,
@@ -283,7 +289,7 @@ private fun DtcScreen(viewModel: DashboardViewModel) {
 }
 
 @Composable
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 private fun SettingsScreen(
     viewModel: DashboardViewModel,
     currentHost: String,
@@ -312,7 +318,7 @@ private fun SettingsScreen(
     var modeMenuExpanded by remember { mutableStateOf(false) }
     var bleDeviceMenuExpanded by remember { mutableStateOf(false) }
     var profileMenuExpanded by remember { mutableStateOf(false) }
-    var scanElapsedSeconds by remember { mutableStateOf(0L) }
+    var scanElapsedSeconds by remember { mutableLongStateOf(0L) }
 
     var selectedProfileId by rememberSaveable { mutableStateOf<String?>(null) }
     var profileDisplayName by rememberSaveable { mutableStateOf("") }
@@ -370,6 +376,7 @@ private fun SettingsScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .verticalScroll(rememberScrollState())
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
@@ -402,7 +409,7 @@ private fun SettingsScreen(
                 label = { Text("Telemetry Mode") },
                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = modeMenuExpanded) },
                 modifier = Modifier
-                    .menuAnchor()
+                    .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
                     .fillMaxWidth(),
             )
 
@@ -449,7 +456,11 @@ private fun SettingsScreen(
                 }
             }
 
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
                 Button(onClick = onRefreshBleDevices) {
                     Text("Refresh Paired Devices")
                 }
@@ -483,7 +494,7 @@ private fun SettingsScreen(
                     placeholder = { Text("AA:BB:CC:DD:EE:FF") },
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = bleDeviceMenuExpanded) },
                     modifier = Modifier
-                        .menuAnchor()
+                        .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryEditable)
                         .fillMaxWidth(),
                     singleLine = true,
                 )
@@ -574,7 +585,11 @@ private fun SettingsScreen(
                     style = MaterialTheme.typography.bodySmall,
                 )
 
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
                     Button(onClick = { viewModel.syncProfilesNow() }) {
                         Text("Sync Profiles Now")
                     }
@@ -624,7 +639,7 @@ private fun SettingsScreen(
                             label = { Text("Active Profile") },
                             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = profileMenuExpanded) },
                             modifier = Modifier
-                                .menuAnchor()
+                                .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
                                 .fillMaxWidth(),
                             singleLine = true,
                         )
@@ -720,7 +735,11 @@ private fun SettingsScreen(
             }
         }
 
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
             Button(
                 enabled = mode != TelemetryMode.BLE_DIRECT || isBleAddressValid,
                 onClick = {

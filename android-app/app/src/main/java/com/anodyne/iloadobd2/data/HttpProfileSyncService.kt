@@ -42,7 +42,7 @@ class HttpProfileSyncService(
                 throw IllegalStateException("profile upsert failed: HTTP ${response.code}")
             }
 
-            val body = response.body?.string().orEmpty()
+            val body = response.body.string()
             if (body.isBlank()) {
                 return@withContext ProfileUpsertResult(cloudVersion = null)
             }

@@ -21,6 +21,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.anodyne.iloadobd2.viewmodel.DashboardViewModel
+import java.util.Locale
 
 @Composable
 fun DashboardScreen(viewModel: DashboardViewModel) {
@@ -50,8 +51,8 @@ fun DashboardScreen(viewModel: DashboardViewModel) {
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             MetricCard(label = "RPM", value = telemetry.rpm.toInt().toString())
-            MetricCard(label = "Speed", value = String.format("%.1f km/h", telemetry.speed))
-            MetricCard(label = "Temp", value = String.format("%.1f C", telemetry.temp))
+            MetricCard(label = "Speed", value = String.format(Locale.US, "%.1f km/h", telemetry.speed))
+            MetricCard(label = "Temp", value = String.format(Locale.US, "%.1f C", telemetry.temp))
             MetricCard(label = "DTC Count", value = telemetry.dtcs.size.toString())
             MetricCard(label = "Capture", value = telemetry.capture?.status ?: "idle")
             MetricCard(label = "Frames", value = (telemetry.capture?.frameCount ?: 0).toString())

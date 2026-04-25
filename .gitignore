@@ -19,3 +19,29 @@
 
 # Go workspace file
 go.work
+
+# Android / Kotlin build artefacts
+android-app/.gradle/
+android-app/build/
+android-app/app/build/
+android-app/local.properties
+android-app/**/*.class
+
+# Kotlin incremental compilation cache
+android-app/**/.kotlin/
+
+# Android Studio IDE files
+android-app/.idea/
+android-app/**/*.iml
+android-app/**/*.ipr
+android-app/**/*.iws
+
+# Gradle wrapper jar (checked-in scripts are intentional; jar is not)
+android-app/gradle/wrapper/gradle-wrapper.jar
+
+# Generated keystore / signing
+android-app/**/*.jks
+android-app/**/*.keystore
+
+# Captured Android profiling output
+android-app/**/*.hprof
